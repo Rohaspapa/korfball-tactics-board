@@ -3,9 +3,7 @@
 웹 브라우저에서 바로 사용할 수 있는 코프볼(Korfball) 작전판입니다.  
 모바일·태블릿·PC 어디서나 동작하며, 설치할 필요 없이 링크만 열면 됩니다.
 
-👉 **[작전판 바로 사용하기](https://YOUR-USERNAME.github.io/korfball-tactics-board/)**
-
-> 위 링크에서 `YOUR-USERNAME` 부분은 본인의 GitHub 사용자명으로 바꿔주세요.
+👉 **[작전판 바로 사용하기](https://Rohaspapa.github.io/korfball-tactics-board/)**
 
 ---
 
