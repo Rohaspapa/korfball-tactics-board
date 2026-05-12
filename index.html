@@ -296,7 +296,7 @@
       </div>
       <div class="btn-row" style="margin-top:6px">
         <button onclick="addBall()" data-i18n="btn_add_ball">⚽ 공 추가</button>
-        <button onclick="loadPreset()" data-i18n="btn_preset">4v4 기본배치</button>
+        <button onclick="loadPreset()" data-i18n="btn_preset">4-0 기본배치</button>
       </div>
       <div class="btn-row" style="margin-top:6px">
         <button onclick="toggleDeleteMode()" id="deleteModeBtn" data-i18n="btn_delete_mode">🗑 선택 삭제</button>
@@ -433,7 +433,7 @@ const I18N = {
     btn_add_attack: "공격팀 +",
     btn_add_defense: "수비팀 +",
     btn_add_ball: "⚽ 공 추가",
-    btn_preset: "4v4 기본배치",
+    btn_preset: "4-0 기본배치",
     btn_clear: "전체 삭제",
     btn_delete_mode: "🗑 선택 삭제",
     btn_delete_mode_on: "🗑 삭제 ON (X 탭)",
@@ -492,8 +492,8 @@ const I18N = {
     toast_added_defense: "수비팀 선수 추가",
     toast_only_one_ball: "공은 1개만 사용합니다",
     toast_added_ball: "공 추가",
-    toast_confirm_preset: "현재 배치를 지우고 4v4 기본 배치로 시작할까요?",
-    toast_preset_loaded: "4v4 기본 배치 로드",
+    toast_confirm_preset: "현재 배치를 지우고 4-0 기본 배치로 시작할까요?",
+    toast_preset_loaded: "4-0 기본 배치 로드 (페어 자동 생성)",
     toast_confirm_clear: "모든 선수와 장면을 삭제할까요?",
     toast_no_players: "먼저 선수를 추가해주세요",
     toast_frame_saved: "장면 {n} 저장됨",
@@ -546,7 +546,7 @@ const I18N = {
     btn_add_attack: "Attack +",
     btn_add_defense: "Defense +",
     btn_add_ball: "⚽ Add Ball",
-    btn_preset: "4v4 Preset",
+    btn_preset: "4-0 Preset",
     btn_clear: "Clear All",
     btn_delete_mode: "🗑 Select Delete",
     btn_delete_mode_on: "🗑 Delete ON (tap X)",
@@ -605,8 +605,8 @@ const I18N = {
     toast_added_defense: "Defense player added",
     toast_only_one_ball: "Only one ball allowed",
     toast_added_ball: "Ball added",
-    toast_confirm_preset: "Clear current setup and load 4v4 preset?",
-    toast_preset_loaded: "4v4 preset loaded",
+    toast_confirm_preset: "Clear current setup and load 4-0 preset?",
+    toast_preset_loaded: "4-0 preset loaded (pairs auto-created)",
     toast_confirm_clear: "Delete all players and scenes?",
     toast_no_players: "Please add players first",
     toast_frame_saved: "Scene {n} saved",
@@ -878,8 +878,9 @@ function addBall() {
   toast(t("toast_added_ball"));
 }
 
-function loadPreset() {
-  if (!confirm(t("toast_confirm_preset"))) return;
+// 4-0 (four-zero) 기본 배치 - 공통 함수
+// 공격수 4명이 골대를 사방에서 둘러싸고, 수비수가 각각 1:1 마크
+function setup4v0Position() {
   state.objects = [];
   state.arrows = [];
   state.pairs = [];
@@ -887,11 +888,56 @@ function loadPreset() {
   state.keyframes = [];
   state.currentFrame = -1;
   state.nextId = 1;
-  for (let i = 0; i < 4; i++) addPlayer("A");
-  for (let i = 0; i < 4; i++) addPlayer("B");
-  state.objects.push(makeObject("ball", null,
-    COURT.postX + COURT.boxW * 0.40,
-    COURT.postY - COURT.boxH * 0.05));
+
+  const px = COURT.postX;
+  const py = COURT.postY;
+  const dA = 120;  // 골대-공격수 거리
+  const dB = 50;   // 골대-수비수 거리
+
+  // 공격수 4명 (A1: 아래, A2: 오른쪽, A3: 위, A4: 왼쪽)
+  const aPos = [
+    { x: px,      y: py + dA + 10 },  // A1 아래 (슛 위치)
+    { x: px + dA, y: py },             // A2 오른쪽
+    { x: px,      y: py - dA - 10 },  // A3 위
+    { x: px - dA, y: py }              // A4 왼쪽
+  ];
+  const attackerIds = [];
+  aPos.forEach(function(pos) {
+    const obj = makeObject("player", "A", pos.x, pos.y);
+    state.objects.push(obj);
+    attackerIds.push(obj.id);
+  });
+
+  // 수비수 4명: 각 공격수와 골대 사이
+  const defenderIds = [];
+  aPos.forEach(function(pos) {
+    const dx = pos.x - px;
+    const dy = pos.y - py;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const bx = px + (dx / dist) * dB;
+    const by = py + (dy / dist) * dB;
+    const obj = makeObject("player", "B", bx, by);
+    state.objects.push(obj);
+    defenderIds.push(obj.id);
+  });
+
+  // 공: A1 옆에
+  state.objects.push(makeObject("ball", null, aPos[0].x + 20, aPos[0].y + 3));
+
+  // 페어 자동 생성: A1-B1, A2-B2, A3-B3, A4-B4
+  for (let i = 0; i < 4; i++) {
+    state.pairs.push({
+      id: state.nextId++,
+      attackerId: attackerIds[i],
+      defenderId: defenderIds[i],
+      distance: 70
+    });
+  }
+}
+
+function loadPreset() {
+  if (!confirm(t("toast_confirm_preset"))) return;
+  setup4v0Position();
   draw();
   renderFrames();
   updatePairStatus();
@@ -2654,12 +2700,8 @@ function toast(msg) {
 // 초기화
 // ==========================================
 function init() {
-  // 4명씩 기본 배치
-  for (let i = 0; i < 4; i++) addPlayer("A");
-  for (let i = 0; i < 4; i++) addPlayer("B");
-  state.objects.push(makeObject("ball", null,
-    COURT.postX + COURT.boxW * 0.40,
-    COURT.postY - COURT.boxH * 0.05));
+  // 4-0 (four-zero) 기본 배치로 시작
+  setup4v0Position();
   draw();
   // 언어 적용 (UI를 현재 언어로 동기화)
   applyLang();
@@ -2667,7 +2709,7 @@ function init() {
   updateRecordingUI();
   // 페어 상태 UI 초기화
   updatePairStatus();
-  debugLog("초기화 완료, 선수 " + state.objects.length + "명");
+  debugLog("4-0 배치로 초기화 완료, 선수 " + state.objects.length + "명");
 }
 
 // 화면 회전 / 리사이즈 시 다시 그리기
