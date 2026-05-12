@@ -1,0 +1,2697 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>코프볼 작전판</title>
+<script src="https://cdn.jsdelivr.net/gh/jnordberg/gif.js@0.2.0/dist/gif.js"></script>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a2332;
+    --panel-light: #243447;
+    --accent: #ff6b35;
+    --accent-2: #4ecdc4;
+    --text: #e8ecf1;
+    --muted: #8395a7;
+    --court-bg: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, 'Apple SD Gothic Neo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 12px;
+  }
+  .app {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 16px;
+  }
+  /* 모바일/태블릿: 1열 - 캔버스를 위에 보여주고 컨트롤은 아래 */
+  @media (max-width: 900px) {
+    .app {
+      grid-template-columns: 1fr;
+    }
+    /* 모바일에서는 캔버스(main)를 사이드바보다 위에 배치 */
+    main { order: 1; }
+    aside { order: 2; }
+  }
+  h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+  .panel {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .section { margin-bottom: 16px; }
+  .section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  button {
+    background: var(--panel-light);
+    color: var(--text);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+    transition: all 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  button:hover { background: #2d3f54; }
+  button.primary { background: var(--accent); border-color: var(--accent); }
+  button.primary:hover { background: #ff7e4d; }
+  button.accent2 { background: var(--accent-2); color: #0f1419; border-color: var(--accent-2); }
+  button.danger { background: #c0392b; border-color: #c0392b; }
+  .btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn-row button { flex: 1; min-width: 0; }
+  .canvas-wrap {
+    position: relative;
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 8px;
+    border: 1px solid rgba(255,255,255,0.06);
+    /* 캔버스 컨테이너가 자식 캔버스의 크기를 결정 */
+    width: 100%;
+  }
+  /* 캔버스: HTML5 표준 동작 사용 - width:100% + height:auto가 width/height 속성 비율을 자동 유지 */
+  canvas#court {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+    background: var(--court-bg);
+    border-radius: 8px;
+    cursor: grab;
+    /* 모바일 터치 동작 제어 */
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  canvas#court.dragging { cursor: grabbing; }
+  .timeline {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--panel-light);
+    border-radius: 8px;
+  }
+  .frames-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .frame-chip {
+    min-width: 64px;
+    padding: 8px 6px;
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: center;
+    font-size: 11px;
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .frame-chip.active { background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; }
+  .frame-chip .num { font-size: 14px; font-weight: 700; display: block; }
+  .info {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-top: 8px;
+  }
+  .info kbd {
+    background: var(--panel-light);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .color-swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid rgba(255,255,255,0.1);
+    transition: all 0.15s;
+  }
+  .color-swatch:hover {
+    transform: scale(1.1);
+  }
+  .color-swatch.active {
+    border-color: #fff;
+    box-shadow: 0 0 0 2px var(--accent);
+    transform: scale(1.1);
+  }
+  /* 직선/자유 곡선 토글 버튼 */
+  .style-btn {
+    font-size: 11px !important;
+    padding: 6px 8px !important;
+    opacity: 0.6;
+  }
+  .style-btn.active {
+    opacity: 1;
+    background: var(--panel-light);
+    border-color: var(--accent-2);
+    color: var(--accent-2);
+    font-weight: 600;
+  }
+  /* 녹화 중 깜박임 */
+  @keyframes recording-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .recording-blink {
+    animation: recording-blink 1s ease-in-out infinite;
+  }
+  /* 페어 목록 칩 스타일 */
+  .pair-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(155,89,182,0.15);
+    border: 1px solid rgba(155,89,182,0.5);
+    color: var(--text);
+    padding: 5px 8px;
+    border-radius: 14px;
+    font-size: 11px;
+    margin: 3px 4px 3px 0;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .pair-chip:hover {
+    background: rgba(155,89,182,0.35);
+    border-color: #9b59b6;
+  }
+  .pair-chip:active {
+    transform: scale(0.96);
+  }
+  .pair-chip .pair-x {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    line-height: 13px;
+    text-align: center;
+    background: #9b59b6;
+    color: white;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: bold;
+    margin-left: 2px;
+  }
+  .pair-chip:hover .pair-x {
+    background: #c0392b;
+  }
+  /* details 스타일 */
+  details summary {
+    list-style: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before {
+    content: "▸ ";
+    transition: transform 0.2s;
+    display: inline-block;
+  }
+  details[open] summary::before {
+    content: "▾ ";
+  }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .label-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .toast {
+    position: fixed;
+    bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 100;
+  }
+  .toast.show { opacity: 1; }
+  .progress {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 0.1s;
+    z-index: 200;
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="toast" id="toast"></div>
+
+<div class="app">
+  <aside class="panel">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px">
+      <div>
+        <h1 data-i18n="title">코프볼 작전판</h1>
+        <p class="subtitle" data-i18n="subtitle">Korfball Half-Court Tactics</p>
+      </div>
+      <button onclick="toggleLang()" id="langBtn" data-i18n="btn_lang" style="flex:0 0 auto; padding:6px 12px; font-weight:600">EN</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title" data-i18n="sec_players">선수 추가</div>
+      <div class="btn-row">
+        <button onclick="addPlayer('A')" data-i18n="btn_add_attack" style="border-left: 3px solid var(--accent)">공격팀 +</button>
+        <button onclick="addPlayer('B')" data-i18n="btn_add_defense" style="border-left: 3px solid var(--accent-2)">수비팀 +</button>
+      </div>
+      <div class="btn-row" style="margin-top:6px">
+        <button onclick="addBall()" data-i18n="btn_add_ball">⚽ 공 추가</button>
+        <button onclick="loadPreset()" data-i18n="btn_preset">4v4 기본배치</button>
+      </div>
+      <div class="btn-row" style="margin-top:6px">
+        <button onclick="toggleDeleteMode()" id="deleteModeBtn" data-i18n="btn_delete_mode">🗑 선택 삭제</button>
+        <button onclick="clearAll()" class="danger" data-i18n="btn_clear">전체 삭제</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title" data-i18n="sec_arrows">방향선 (기동)</div>
+      <div class="btn-row">
+        <button onclick="toggleDrawMode()" id="drawModeBtn" data-i18n="btn_draw_mode">✏ 그리기 모드</button>
+      </div>
+      <div style="font-size:10px; color:var(--muted); margin-top:8px; text-transform:uppercase; letter-spacing:0.05em" data-i18n="arrow_style">선 종류</div>
+      <div class="style-row" style="display:flex; gap:6px; margin-top:4px">
+        <button class="style-btn active" data-style="straight" onclick="setDrawStyle('straight')" data-i18n="arrow_straight" style="flex:1">직선 (화살표)</button>
+        <button class="style-btn" data-style="freehand" onclick="setDrawStyle('freehand')" data-i18n="arrow_freehand" style="flex:1">자유 곡선</button>
+      </div>
+      <div class="color-palette" style="display:flex; gap:6px; margin-top:10px">
+        <div class="color-swatch active" data-color="#e74c3c" onclick="setDrawColor('#e74c3c')" style="background:#e74c3c"></div>
+        <div class="color-swatch" data-color="#f1c40f" onclick="setDrawColor('#f1c40f')" style="background:#f1c40f"></div>
+        <div class="color-swatch" data-color="#3498db" onclick="setDrawColor('#3498db')" style="background:#3498db"></div>
+        <div class="color-swatch" data-color="#27ae60" onclick="setDrawColor('#27ae60')" style="background:#27ae60"></div>
+      </div>
+      <div class="btn-row" style="margin-top:8px">
+        <button onclick="clearAllArrows()" class="danger" data-i18n="btn_clear_arrows">방향선 모두 삭제</button>
+      </div>
+    </div>
+
+    <div class="section" style="border:1px solid rgba(155,89,182,0.4); border-radius:10px; padding:12px; background:rgba(155,89,182,0.05)">
+      <div class="section-title" style="color:#9b59b6" data-i18n="sec_pair">1:1 마크 페어 (그룹화)</div>
+      <div id="pairStatus" style="font-size:12px; color:var(--muted); margin-bottom:8px; font-weight:600">페어 없음</div>
+      <div class="btn-row">
+        <button onclick="togglePairMode()" id="pairModeBtn" data-i18n="btn_pair_mode">🔗 페어 만들기</button>
+      </div>
+      <!-- 페어 목록 (개별 해제 가능) -->
+      <div id="pairList" style="margin-top:8px; display:none">
+        <div style="font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px" data-i18n="pair_list_title">활성 페어 (탭하여 해제)</div>
+        <div id="pairListItems"></div>
+      </div>
+      <div class="btn-row" style="margin-top:6px">
+        <button onclick="clearAllPairs()" class="danger" data-i18n="btn_clear_pairs">모든 페어 해제</button>
+      </div>
+      <div class="info" style="margin-top:8px" data-i18n="pair_help">① 🔗 버튼 클릭 → ② 공격수 탭 → ③ 수비수 탭 → 완료! 이후 공격수를 드래그하면 수비수가 자동으로 따라옵니다.</div>
+    </div>
+
+    <div class="section" style="border:2px solid var(--accent); border-radius:10px; padding:12px; background:rgba(255,107,53,0.05)">
+      <div class="section-title" style="color:var(--accent)" data-i18n="sec_record">녹화 (간편 모드)</div>
+      <div id="recordStatus" style="font-size:12px; color:var(--muted); margin-bottom:8px; font-weight:600">녹화된 영상이 없습니다</div>
+      <div class="btn-row">
+        <button onclick="startRecording()" id="recordStartBtn" class="primary" data-i18n="btn_record_start">🔴 녹화 시작</button>
+        <button onclick="stopRecording()" id="recordStopBtn" style="display:none; background:#c0392b; border-color:#c0392b" data-i18n="btn_record_stop">■ 녹화 종료</button>
+      </div>
+      <div class="btn-row" style="margin-top:6px">
+        <button onclick="saveRecordedGIF()" class="accent2" data-i18n="btn_save_recorded_gif">💾 GIF로 저장</button>
+        <button onclick="saveRecordedVideo()" class="accent2" data-i18n="btn_save_recorded_video">🎬 동영상으로 저장</button>
+      </div>
+      <div class="btn-row" style="margin-top:6px">
+        <button onclick="clearRecording()" class="danger" data-i18n="btn_clear_recording">녹화 삭제</button>
+      </div>
+    </div>
+
+    <details class="section" style="border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:0">
+      <summary style="cursor:pointer; padding:12px; font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); font-weight:600" data-i18n="sec_keyframes">키프레임 (고급)</summary>
+      <div style="padding:0 12px 12px">
+        <div class="btn-row">
+          <button onclick="addKeyframe()" class="primary" data-i18n="btn_save_frame">📸 현재 장면 저장</button>
+        </div>
+        <div class="btn-row" style="margin-top:6px">
+          <button onclick="updateKeyframe()" data-i18n="btn_update_frame">현재로 갱신</button>
+          <button onclick="deleteKeyframe()" class="danger" data-i18n="btn_delete_frame">삭제</button>
+        </div>
+        <div class="label-row" style="margin-top:10px">
+          <span data-i18n="label_duration">장면 간 시간</span>
+          <span id="durLabel">1.5초</span>
+        </div>
+        <input type="range" id="duration" min="0.3" max="4" step="0.1" value="1.5" oninput="updateDur()">
+        <div class="btn-row" style="margin-top:8px">
+          <button onclick="playAnimation()" class="accent2" data-i18n="btn_play">▶ 재생</button>
+          <button onclick="stopAnimation()" data-i18n="btn_stop">■ 정지</button>
+        </div>
+        <div class="btn-row" style="margin-top:6px">
+          <button onclick="exportGIF()" class="primary" data-i18n="btn_export_gif">💾 GIF 저장</button>
+          <button onclick="exportWebM()" class="primary" data-i18n="btn_export_video">🎬 동영상</button>
+        </div>
+      </div>
+    </details>
+
+    <div class="section">
+      <div class="section-title">프로젝트 / Project</div>
+      <div class="btn-row">
+        <button onclick="saveProject()" data-i18n="btn_save_project">📁 프로젝트 저장</button>
+        <button onclick="loadProjectClick()" data-i18n="btn_load_project">📂 불러오기</button>
+        <input type="file" id="loadFile" style="display:none" accept=".json" onchange="loadProject(event)">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title" data-i18n="sec_help">사용법</div>
+      <div class="info">
+        • <span data-i18n="help_drag" data-i18n-html>선수/공을 <kbd>드래그</kbd>해서 이동</span><br>
+        • <span data-i18n="help_dblclick" data-i18n-html><kbd>더블클릭</kbd>(PC) / <kbd>더블탭</kbd>(모바일): 등번호 변경</span><br>
+        • <span data-i18n="help_rightclick" data-i18n-html><kbd>우클릭</kbd>(PC) / <kbd>길게누르기</kbd>(모바일): 삭제</span><br>
+        • <span data-i18n="help_arrow" data-i18n-html>그리기 모드: 직선 또는 자유 곡선으로 화살표/궤적 그리기</span><br>
+        • <span data-i18n="help_keyframe" data-i18n-html>🔴 녹화 시작 → 자유롭게 움직이기 → ■ 녹화 종료</span><br>
+        &nbsp;&nbsp;<span data-i18n="help_keyframe2">→ GIF/동영상으로 저장</span><br>
+        • <span data-i18n="help_export">고급: 키프레임으로 정교한 애니메이션 제작 가능</span>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="canvas-wrap">
+      <canvas id="court" width="700" height="697"></canvas>
+    </div>
+    <div id="debugInfo" style="font-size:10px; color:var(--muted); padding:8px; margin-top:8px; background:var(--panel); border-radius:8px; white-space:pre-wrap; max-height:80px; overflow-y:auto; font-family:monospace"></div>
+    <div class="timeline">
+      <div class="section-title" data-i18n="timeline_title">타임라인 (클릭으로 이동)</div>
+      <div class="frames-row" id="framesRow">
+        <div style="color:var(--muted); font-size:12px; padding:8px" data-i18n="timeline_empty">선수를 배치한 후 "📸 현재 장면 저장"을 눌러보세요.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ==========================================
+// 다국어 지원 (i18n)
+// ==========================================
+const I18N = {
+  ko: {
+    title: "코프볼 작전판",
+    subtitle: "Korfball Half-Court Tactics",
+    sec_players: "선수 추가",
+    btn_add_attack: "공격팀 +",
+    btn_add_defense: "수비팀 +",
+    btn_add_ball: "⚽ 공 추가",
+    btn_preset: "4v4 기본배치",
+    btn_clear: "전체 삭제",
+    btn_delete_mode: "🗑 선택 삭제",
+    btn_delete_mode_on: "🗑 삭제 ON (X 탭)",
+    toast_delete_mode_on: "선택 삭제 모드 ON - 빨간 X를 탭하세요",
+    toast_delete_mode_off: "선택 삭제 모드 OFF",
+    sec_arrows: "방향선 (기동)",
+    btn_draw_mode: "✏ 그리기 모드",
+    btn_draw_mode_on: "✏ 그리기 ON",
+    btn_clear_arrows: "방향선 모두 삭제",
+    arrow_style: "선 종류",
+    arrow_straight: "직선 (화살표)",
+    arrow_freehand: "자유 곡선",
+    sec_pair: "1:1 마크 페어 (그룹화)",
+    btn_pair_mode: "🔗 페어 만들기",
+    btn_pair_mode_on: "🔗 페어 ON (탭으로 선택)",
+    btn_clear_pairs: "모든 페어 해제",
+    pair_help: "① 🔗 버튼 클릭 → ② 공격수 탭 → ③ 수비수 탭 → 완료! 이후 공격수를 드래그하면 수비수가 자동으로 따라옵니다.",
+    pair_list_title: "활성 페어 (탭하여 해제)",
+    label_no_pair: "페어 없음",
+    color_red: "빨강",
+    color_yellow: "노랑",
+    color_blue: "파랑",
+    color_green: "초록",
+    sec_record: "녹화 (간편 모드)",
+    btn_record_start: "🔴 녹화 시작",
+    btn_record_stop: "■ 녹화 종료",
+    btn_save_recorded_gif: "💾 GIF로 저장",
+    btn_save_recorded_video: "🎬 동영상으로 저장",
+    btn_clear_recording: "녹화 삭제",
+    label_recording: "● 녹화 중...",
+    label_recorded: "✅ 녹화 완료 ({n}초)",
+    label_no_recording: "녹화된 영상이 없습니다",
+    sec_keyframes: "키프레임 (고급)",
+    btn_save_frame: "📸 현재 장면 저장",
+    btn_update_frame: "현재로 갱신",
+    btn_delete_frame: "삭제",
+    sec_playback: "재생 / 저장",
+    label_duration: "장면 간 시간",
+    btn_play: "▶ 재생",
+    btn_stop: "■ 정지",
+    btn_export_gif: "💾 GIF 저장",
+    btn_export_video: "🎬 동영상",
+    btn_save_project: "📁 프로젝트 저장",
+    btn_load_project: "📂 불러오기",
+    sec_help: "사용법",
+    help_drag: "선수/공을 <kbd>드래그</kbd>해서 이동",
+    help_dblclick: "<kbd>더블클릭</kbd>(PC) / <kbd>더블탭</kbd>(모바일): 등번호 변경",
+    help_rightclick: "<kbd>🗑 선택 삭제</kbd> 버튼 → 선수 위 빨간 X 탭으로 삭제",
+    help_arrow: "그리기 모드: 직선 또는 자유 곡선으로 화살표/궤적 그리기",
+    help_keyframe: "🔴 녹화 시작 → 자유롭게 움직이기 → ■ 녹화 종료",
+    help_keyframe2: "→ GIF/동영상으로 저장",
+    help_export: "고급: 키프레임으로 정교한 애니메이션 제작 가능",
+    timeline_title: "타임라인 (클릭으로 이동)",
+    timeline_empty: '선수를 배치한 후 "📸 현재 장면 저장"을 눌러보세요.',
+    toast_added_attack: "공격팀 선수 추가",
+    toast_added_defense: "수비팀 선수 추가",
+    toast_only_one_ball: "공은 1개만 사용합니다",
+    toast_added_ball: "공 추가",
+    toast_confirm_preset: "현재 배치를 지우고 4v4 기본 배치로 시작할까요?",
+    toast_preset_loaded: "4v4 기본 배치 로드",
+    toast_confirm_clear: "모든 선수와 장면을 삭제할까요?",
+    toast_no_players: "먼저 선수를 추가해주세요",
+    toast_frame_saved: "장면 {n} 저장됨",
+    toast_no_frame_to_update: "갱신할 장면이 없습니다",
+    toast_frame_updated: "현재 장면 갱신",
+    toast_need_2_frames: "재생하려면 장면이 2개 이상 필요합니다",
+    toast_need_2_frames_gif: "GIF 저장하려면 장면이 2개 이상 필요합니다",
+    toast_need_2_frames_video: "동영상 저장하려면 장면이 2개 이상 필요합니다",
+    toast_gif_lib_fail: "GIF 라이브러리 로드 실패 - 인터넷 연결을 확인하세요",
+    toast_gif_creating: "GIF 생성 중... 잠시 기다려주세요",
+    toast_gif_done: "GIF 저장 완료!",
+    toast_video_unsupported: "이 브라우저는 동영상 저장을 지원하지 않습니다",
+    toast_video_recording: "동영상 녹화 중...",
+    toast_video_done: "동영상 저장 완료!",
+    toast_project_saved: "프로젝트 저장 완료",
+    toast_project_loaded: "프로젝트 불러옴",
+    toast_load_fail: "파일 로드 실패",
+    toast_draw_on: "그리기 모드 ON - 선수에서 드래그하세요",
+    toast_draw_off: "그리기 모드 OFF",
+    toast_arrows_cleared: "방향선 모두 삭제",
+    toast_confirm_clear_arrows: "모든 방향선을 삭제할까요?",
+    toast_arrow_deleted: "방향선 삭제",
+    toast_recording_started: "녹화 시작 - 자유롭게 움직여보세요",
+    toast_recording_stopped: "녹화 완료 - GIF 또는 동영상으로 저장하세요",
+    toast_no_recording: "먼저 녹화를 진행해주세요",
+    toast_recording_cleared: "녹화 삭제됨",
+    toast_confirm_clear_recording: "녹화된 내용을 삭제할까요?",
+    toast_pair_mode_on: "페어 ON - 공격수를 탭하세요 (드래그로 이동도 가능)",
+    toast_pair_mode_off: "페어 모드 OFF",
+    toast_pair_select_defender: "이제 수비수를 선택하세요",
+    toast_pair_created: "페어 생성됨 - 공격수가 움직이면 수비수가 따라옵니다",
+    toast_pair_cancelled: "페어 생성 취소",
+    toast_pair_only_attack: "공격팀 선수를 먼저 선택해주세요",
+    toast_pair_only_defense: "수비팀 선수를 선택해주세요",
+    toast_pair_already: "이 선수는 이미 페어에 있습니다",
+    toast_pairs_cleared: "모든 페어 해제됨",
+    toast_confirm_clear_pairs: "모든 페어를 해제할까요?",
+    toast_pair_removed: "페어 해제됨",
+    confirm_remove_pair: "이 페어를 해제할까요?",
+    confirm_delete_player: "선수 #{n}을(를) 삭제할까요?",
+    confirm_delete_ball: "공을 삭제할까요?",
+    confirm_delete_arrow: "방향선을 삭제할까요?",
+    prompt_jersey: "등번호 입력:",
+    btn_lang: "EN"
+  },
+  en: {
+    title: "Korfball Tactics Board",
+    subtitle: "Korfball Half-Court Tactics",
+    sec_players: "Add Players",
+    btn_add_attack: "Attack +",
+    btn_add_defense: "Defense +",
+    btn_add_ball: "⚽ Add Ball",
+    btn_preset: "4v4 Preset",
+    btn_clear: "Clear All",
+    btn_delete_mode: "🗑 Select Delete",
+    btn_delete_mode_on: "🗑 Delete ON (tap X)",
+    toast_delete_mode_on: "Delete mode ON - tap red X to remove",
+    toast_delete_mode_off: "Delete mode OFF",
+    sec_arrows: "Movement Arrows",
+    btn_draw_mode: "✏ Draw Mode",
+    btn_draw_mode_on: "✏ Draw ON",
+    btn_clear_arrows: "Clear All Arrows",
+    arrow_style: "Line Style",
+    arrow_straight: "Straight (Arrow)",
+    arrow_freehand: "Freehand",
+    sec_pair: "1:1 Mark Pair (Grouping)",
+    btn_pair_mode: "🔗 Create Pair",
+    btn_pair_mode_on: "🔗 Pair ON (tap to select)",
+    btn_clear_pairs: "Clear All Pairs",
+    pair_help: "① Click 🔗 → ② Tap attacker → ③ Tap defender → Done! Drag attacker and defender follows automatically.",
+    pair_list_title: "Active Pairs (tap to remove)",
+    label_no_pair: "No pairs",
+    color_red: "Red",
+    color_yellow: "Yellow",
+    color_blue: "Blue",
+    color_green: "Green",
+    sec_record: "Record (Simple Mode)",
+    btn_record_start: "🔴 Start Recording",
+    btn_record_stop: "■ Stop Recording",
+    btn_save_recorded_gif: "💾 Save as GIF",
+    btn_save_recorded_video: "🎬 Save as Video",
+    btn_clear_recording: "Clear Recording",
+    label_recording: "● Recording...",
+    label_recorded: "✅ Recorded ({n}s)",
+    label_no_recording: "No recording yet",
+    sec_keyframes: "Keyframes (Advanced)",
+    btn_save_frame: "📸 Save Current Scene",
+    btn_update_frame: "Update",
+    btn_delete_frame: "Delete",
+    sec_playback: "Playback / Export",
+    label_duration: "Scene Duration",
+    btn_play: "▶ Play",
+    btn_stop: "■ Stop",
+    btn_export_gif: "💾 Save GIF",
+    btn_export_video: "🎬 Save Video",
+    btn_save_project: "📁 Save Project",
+    btn_load_project: "📂 Load",
+    sec_help: "How to Use",
+    help_drag: "<kbd>Drag</kbd> players/ball to move",
+    help_dblclick: "<kbd>Double-click</kbd>(PC) / <kbd>Double-tap</kbd>(mobile): change jersey",
+    help_rightclick: "<kbd>🗑 Select Delete</kbd> button → tap red X to remove a player",
+    help_arrow: "Draw mode: straight arrows or freehand paths",
+    help_keyframe: "🔴 Start Recording → move freely → ■ Stop",
+    help_keyframe2: "→ save as GIF/video",
+    help_export: "Advanced: use keyframes for precise animations",
+    timeline_title: "Timeline (click to navigate)",
+    timeline_empty: 'Place players and click "📸 Save Current Scene".',
+    toast_added_attack: "Attack player added",
+    toast_added_defense: "Defense player added",
+    toast_only_one_ball: "Only one ball allowed",
+    toast_added_ball: "Ball added",
+    toast_confirm_preset: "Clear current setup and load 4v4 preset?",
+    toast_preset_loaded: "4v4 preset loaded",
+    toast_confirm_clear: "Delete all players and scenes?",
+    toast_no_players: "Please add players first",
+    toast_frame_saved: "Scene {n} saved",
+    toast_no_frame_to_update: "No scene to update",
+    toast_frame_updated: "Scene updated",
+    toast_need_2_frames: "Need at least 2 scenes to play",
+    toast_need_2_frames_gif: "Need at least 2 scenes to save GIF",
+    toast_need_2_frames_video: "Need at least 2 scenes to save video",
+    toast_gif_lib_fail: "GIF library failed to load - check internet",
+    toast_gif_creating: "Creating GIF... please wait",
+    toast_gif_done: "GIF saved!",
+    toast_video_unsupported: "Browser does not support video export",
+    toast_video_recording: "Recording video...",
+    toast_video_done: "Video saved!",
+    toast_project_saved: "Project saved",
+    toast_project_loaded: "Project loaded",
+    toast_load_fail: "Failed to load file",
+    toast_draw_on: "Draw mode ON - drag from a player",
+    toast_draw_off: "Draw mode OFF",
+    toast_arrows_cleared: "All arrows cleared",
+    toast_confirm_clear_arrows: "Delete all arrows?",
+    toast_arrow_deleted: "Arrow deleted",
+    toast_recording_started: "Recording started - move freely",
+    toast_recording_stopped: "Recording done - save as GIF or video",
+    toast_no_recording: "Please record first",
+    toast_recording_cleared: "Recording cleared",
+    toast_confirm_clear_recording: "Delete the recording?",
+    toast_pair_mode_on: "Pair ON - tap players to pair (drag to move still works)",
+    toast_pair_mode_off: "Pair mode OFF",
+    toast_pair_select_defender: "Now select a defender",
+    toast_pair_created: "Pair created - defender will follow",
+    toast_pair_cancelled: "Pair creation cancelled",
+    toast_pair_only_attack: "Please select an Attack player first",
+    toast_pair_only_defense: "Please select a Defense player",
+    toast_pair_already: "This player is already in a pair",
+    toast_pairs_cleared: "All pairs cleared",
+    toast_confirm_clear_pairs: "Clear all pairs?",
+    toast_pair_removed: "Pair removed",
+    confirm_remove_pair: "Remove this pair?",
+    confirm_delete_player: "Delete player #{n}?",
+    confirm_delete_ball: "Delete the ball?",
+    confirm_delete_arrow: "Delete this arrow?",
+    prompt_jersey: "Enter jersey number:",
+    btn_lang: "한"
+  }
+};
+
+// 현재 언어 (기본 한국어)
+let currentLang = "ko";
+function t(key) {
+  return I18N[currentLang][key] || key;
+}
+
+function toggleLang() {
+  currentLang = (currentLang === "ko") ? "en" : "ko";
+  applyLang();
+}
+
+function applyLang() {
+  // 모든 data-i18n 요소 업데이트
+  document.querySelectorAll("[data-i18n]").forEach(function(el) {
+    const key = el.getAttribute("data-i18n");
+    if (el.hasAttribute("data-i18n-html")) {
+      el.innerHTML = t(key);
+    } else {
+      el.textContent = t(key);
+    }
+  });
+  // 그리기 모드 버튼은 상태에 따라 다른 키
+  const drawBtn = document.getElementById("drawModeBtn");
+  if (drawBtn) {
+    drawBtn.textContent = state.drawMode ? t("btn_draw_mode_on") : t("btn_draw_mode");
+  }
+  // 페어 모드 버튼도 상태에 따라
+  const pairBtn = document.getElementById("pairModeBtn");
+  if (pairBtn) {
+    pairBtn.textContent = state.pairMode ? t("btn_pair_mode_on") : t("btn_pair_mode");
+  }
+  // 선택 삭제 모드 버튼도 상태에 따라
+  const delBtn = document.getElementById("deleteModeBtn");
+  if (delBtn) {
+    delBtn.textContent = state.deleteMode ? t("btn_delete_mode_on") : t("btn_delete_mode");
+  }
+  // 페어 상태 표시 갱신
+  updatePairStatus();
+  // 타임라인도 다시 그리기 (장면 라벨이 i18n 영향 받음)
+  renderFrames();
+  // 페이지 제목
+  document.title = t("title");
+}
+
+// ==========================================
+// 캔버스 설정 - 내부 해상도는 700 x 697 (이미지와 동일)
+// 표시 크기는 CSS의 width:100% + height:auto가 자동으로 비율 유지
+// ==========================================
+const canvas = document.getElementById("court");
+const ctx = canvas.getContext("2d");
+
+// 첨부 이미지에서 정밀 측정한 코트 좌표 (이미지 픽셀 기준)
+const COURT = {
+  CANVAS_W: 700,
+  CANVAS_H: 697,
+  // 코트 박스 (새 이미지 기준 좌표)
+  // 이미지 원본(1120x1092) → 캔버스(700x697) 변환
+  // 코트 좌측 세로선: 원본 X≈413 → 캔버스 258
+  // 코트 우측 세로선: 원본 X≈678 → 캔버스 424
+  // 코트 상단: 원본 Y≈232 → 캔버스 148
+  // 코트 하단: 원본 Y≈630 → 캔버스 402
+  boxLeft: 258,
+  boxRight: 424,
+  boxTop: 148,
+  boxBottom: 402,
+  // 골대 위치 (노란 원 중심): 원본 (545, 386) → 캔버스 (341, 247)
+  postX: 341,
+  postY: 247
+};
+COURT.boxW = COURT.boxRight - COURT.boxLeft; // 166
+COURT.boxH = COURT.boxBottom - COURT.boxTop; // 254
+
+// 화면에 디버그 메시지 표시 (모바일에서 콘솔이 안 보일 때 사용)
+function debugLog(msg) {
+  console.log(msg);
+  const el = document.getElementById("debugInfo");
+  if (el) {
+    const time = new Date().toLocaleTimeString();
+    el.textContent = "[" + time + "] " + msg + "\n" + el.textContent.split("\n").slice(0, 4).join("\n");
+  }
+}
+
+// ==========================================
+// 코트 배경 이미지 로드
+// ==========================================
+const courtImg = new Image();
+let courtImgLoaded = false;
+
+courtImg.onload = function() {
+  courtImgLoaded = true;
+  debugLog("이미지 로드 OK: " + courtImg.width + "x" + courtImg.height);
+  draw();
+};
+
+courtImg.onerror = function() {
+  debugLog("이미지 로드 실패!");
+  courtImgLoaded = false;
+  draw();
+};
+
+// base64 데이터 (별도 변수로 분리하여 문자열 안전성 확보)
+const COURT_IMG_DATA = "iVBORw0KGgoAAAANSUhEUgAABGAAAARECAIAAAC1UfDeAACoG0lEQVR4nOzdd5Cl13nf+eecN9z3ho7T05PzIGeAyAABMIiiRBIgbVHBpEW6TJe5a8mlUnlXtcHyVrnslbdcXq1tqixaS4kytbJJi5QEEhQpgiJICDljAAwGwOTc0/mGN5xz9o9z+8UliMEAw8HcDt9PoQZ3uu/0nA7T/f7e55znUc45AQAAAACI6H4vAAAAAAAWCwISAAAAAHQRkAAAAACgi4AEAAAAAF0EJAAAAADoIiABAAAAQBcBCQAAAAC63iogFUUhIs65PM+Losiy7HytCgAAAMAKkud5GTd8DOmXtwpIxhgRUUpFURSGYRzHeZ6fr4UBAAAAWP7m5+ettVEUxXHsX6KU6mNtRjnn3uLVRVGEYVj+1lqrNbvyAAAAAJxjWZa12+1arRZFkXNOKdWXZbytgDQzM6OUajQab/1kAAAAAHhHiqKw1lYqld5KTJqmlUqlL+s5bUBqtVq1Wq3T6SRJ4l/iV8lJJAAAAADnShRF/iCPtbbVahlj6vV6tVrtVwUpPN0rarWaLByQarVa+/fv/9rXvtZoNPp7ZAoAAADAcmKM8VkoDENjjDHmiiuu+Nmf/dnekz7n02n/Vn/cyC+rVqtt3Lix0WjcdtttIyMj53F5AAAAAJYzY4w/dFSr1ebm5h588MGpqalOp9NoNPqyntMGJL8FsNxT1+l0giC4/vrrz9/SAAAAAKwM09PTw8PD69at27t379TUlN/O1henbUlXnk2K4zgMQ+dcEAS0+QYAAABwDvnZQoODg/63YRhmWdbH1tn07AYAAACALgISAAAAAHQRkAAAAACgi4AEAAAAAF0EJAAAAADoIiABAAAAQBcBCQAAAAC6ThuQlFK9v5bO39IAAAAA4PyiggQAAAAAXQQkAAAAAOgiIAEAAABAFwEJAAAAALoISAAAAADQRUACAAAAgC4CEgAAAAB0EZAAAAAAoIuABAAAAABdBCQAAAAA6CIgAQAAAEAXAQkAAAAAughIAAAAANBFQAIAAACALgISAAAAAHQRkAAAAACgi4AEAAAAAF0EJAAAAADoIiABAAAAQBcBCQAAAAC6CEgAAAAA0EVAAgAAAIAuAhIAAAAAdBGQAAAAAKCLgAQAAAAAXQQkAAAAAOgiIAEAAABAFwEJAAAAALoISAAAAADQRUACAAAAgC4CEgAAAAB0EZAAAAAAoIuABAAAAABdBCQAAAAA6CIgAQAAAEAXAQkAAAAAughIAAAAANBFQAIAAACALgISAAAAAHQRkAAAAACgi4AEAAAAAF0EJAAAAADoIiABAAAAQBcBCQAAAAC6CEgAAAAA0EVAAgAAAIAuAhIAAAAAdBGQAAAAAKCLgAQAAAAAXQQkAAAAAOgiIAEAAABAFwEJAAAAALoISAAAAADQRUACAAAAgC4CEgAAAAB0EZAAAAAAoIuABAAAAABdBCQAAAAA6CIgAQAAAEAXAQkAAAAAughIAAAAANBFQAIAAACALgISAAAAAHQRkAAAAACgi4AEAAAAAF0EJAAAAADoIiABAAAAQBcBCQAAAAC6CEgAAAAA0EVAAgAAAIAuAhIAAAAAdBGQAAAAAKCLgAQAAAAAXQQkAAAAAOgiIAEAAABAFwEJAAAAALoISAAAAADQRUACAAAAgC4CEgAAAAB0EZAAAAAAoIuABAAAAABdBCQAAAAA6CIgAQAAAEAXAQkAAAAAughIAAAAANBFQAIAAACALgISAAAAAHQRkAAAAACgi4AEAAAAAF0EJAAAAADoIiABAAAAQBcBCQAAAAC6CEgAAAAA0EVAAgAAAIAuAhIAAAAAdBGQAAAAAKCLgAQAAAAAXQQkAAAAAOgiIAEAAABAFwEJAAAAALoISAAAAADQRUACAAAAgC4CEgAAAAB0EZAAAAAAoIuABAAAAABdBCQAAAAA6CIgAQAAAEAXAQkAAAAAughIAAAAANBFQAIAAACALgISAAAAAHQRkAAAAACgi4AEAAAAAF0EJAAAAADoIiABAAAAQBcBCQAAAAC6CEgAAAAA0EVAAgAAAIAuAhIAAAAAdBGQAAAAAKCLgAQAAAAAXQQkAAAAAOgiIAEAAABAFwEJAAAAALoISAAAAADQRUACAAAAgC4CEgAAAAB0EZAAAAAAoIuABAAAAABdBCQAAAAA6CIgAQAAAEAXAQkAAAAAughIAAAAANBFQAIAAACALgISAAAAAHQRkAAAAACgi4AEAAAAAF0EJAAAAADoIiABAAAAQBcBCQAAAAC6CEgAAAAA0EVAAgAAAIAuAhIAAAAAdBGQAAAAAKCLgAQAAAAAXQQkAAAAAOgiIAEAAABAFwEJAAAAALoISAAAAADQRUACAAAAgC4C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nydOnEiS5NixY3/4h39455133n777UePHh0dHe33YrFkfPjDH161atWf/dmflbOGa7Xa/Px8WXQqc9Ebtu0BAN5VBCQAOAO/P8pfxYZhaIwJw3B8fPzw4cO/+7u/+7GPfeyWW26Zmppat26diPiCAFB602yjlFq1atUv//Iv+54NURT5+qSvMvWmIwDAeUZAAoAz8Ofmm82m78rQbrdF5OjRo1/4whc+/OEP33jjjcaY4eFh/5w4jvu7WixOZRWofOCcC4Lg85///J49e/7qr/6qVqs1m80kSbTW/hST/7XfCweAFYeABABn4O/uDwwMiIgxptFoHDt27Itf/OKVV1753ve+d2Zmxs/9nJubq9frvadQAK/MOW8IPFmW1ev13/qt3/rud7/713/91/V6PU1TtaB8GtUkADif+EEOAGfguzCLiL/BPzk5+aUvfWn79u2/+Iu/ePTo0aGhoSRJfM86WejoAJROt8UuCILyeNs//+f//E//9E93795dtrMDAPQLAQkAzqxSqYiI1rrZbP7oRz+KouhTn/pUlmX+3FG73fY963wXuz6vFYtb7xY7v2nTGDM4OPgv/sW/+D//z/+z1Wrlee5bhBtjfLcGmjQAwPlEQAKAM0vT1BhTrVa/973v7d+//5/+03/abrf9NWue537Mkd+Gx4Us3iZfPhoaGkrT1Dm3evXqf/pP/+nv/d7v5XnuM5JPR/1eJgCsOAQkAPgxrVbLP/C9GTqdjjEmjuMgCH74wx8+//zzn/rUpzqdTrVa9TM9y8meURQx5RNvh2/AkKZptVr1EagoikqlsmXLlrvvvvvf//t/H4ZhkiTNZjMIAqXU1NRUv5cMACsIAQkAuvz411qt1ul0iqKI4zjP8yRJiqJwzh08ePC//tf/+su//MsDAwMDAwPc2sdPye/GVEpVKhUfrQcHBzdv3nz99df/q3/1r5xzw8PDs7OzIlKpVPwXJwDgPCAgAUCXUspfhiqlwjAUkZmZGedcpVJpt9v/4T/8h8997nOrV6/20ajZbPZ5uVgulFI+hAdBMDY2dssttwRBcN9994lIo9E4depUrVbr9xoBYAUhIAFAl+/B4BORf0m1WlVKOed+//d///3vf/9VV13l99GlaZokSX9Xi6UuCAJrrW+QaK1N09S3QEyS5J/9s392//33v/jii3Nzc6tWrZKFchMA4Dwg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snD6iC12AHDW+AYKYMV54YUXoih6z3vek6apv5pkVxKWhDIRlYIgKIqiXq/feOONjz32WJqmzrly9x0A4CwQkACsON/73vduuummKIoqlcrMzIy/mqxUKv1eF/B2WWuLougdeXT77be/+uqraZoaY8qTdQCAs0BAArCctdtt/8AfMTLGHDlypNlsXnPNNSLS6XSGhoZ8TzCKSFhC/Bykcjed/zr/+Mc//uUvfzmKoiRJOFMHAGeNgARgOSt701lrnXNBEDz++OMXXnhhkiSycOudNt9Y0rIsq1arzrlLLrkkTdODBw+S9gHgp0FAArCc+VvsfseRUmp2dvaFF1649tproyiSH+/3xbENLFE+2zvnxsbG1q9f//jjj8vCKGQAwFkgIAFYtvw1orVWKeWT0q5duwYHB7ds2eKf4Bsll4/7tU7gp1GpVHy8L4rixhtv3L9//9zcHF/PAHDW+AYKYJkzxvh60ezs7FNPPXXDDTcopcqm3n7rnRCQsJTleS4iRVFs2bKlWq0+/vjj/o4AAOAscEEAYNnyO+jKGtG+ffvm5uYuv/xyWbig9JRS1tq+rBD46VlrK5WKcy5JkjzPL7744meeeabfiwKAJYyABGDZ6u27kGXZq6++6tsz+FGbImKt9Q84sIGly28i9Y+zLLvsssvSND1y5Eh/VwUASxcBCcCylWWZMcZaa63N8/zEiRNXXHGF7+jti0tFUfgrSzo0YOkKwzDLMq21tbZarY6Nja1aterZZ5/t97oAYKkiIAFYtiqVShAEfgLsrl275ubmdu7c6bOQb/9dNgGvVqt9XCfw0zDGxHHcbre11lEU5Xn+kY985JFHHvFDY30dtZwqCwA4IwISgOXM14601n5/Xb+XA7xbyl12WutKpTI2Nnb48OEgCHwu8kPA+rpAAFgyCEgAlq1yPky73d63b98111zT7xUB556PRv40nT9fV6/Xt23b9uKLL4qItbasIwEA3g4CEoBlyxjjNx298MIL1Wp106ZN3EfHcqWUcs4555RScRxv37791VdfbTabWuvya55ujQDwdhCQACxb/q65Uuqpp57y3b07nQ4BCctMWUHy6ci/cN26dZ1O58iRI/4LnmYkAPD2EZAALHOnTp06efKkD0jcQcfy48OPryCVAWlwcHDTpk179uzxoah8OQDgjAhIAJYtf+/81VdfHRkZGRsb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Fd8LRESiKGq323feeefGjRu/9a1vNZvNPM+VUlpr55wxphwjCwA4h/iBBAA/xlo7NDT0//6//++111579dVXG2OGhoaKoqjX661WS0Tq9frc3Fy9Xu/3SrE8OeeGhoZEZG5uzh+He+9733vo0KETJ07Mz8/7Iqe1ljYhAPAuISABWHGste12uxxkVNaC/EuyLPvhD3/YbrdvueUW31XZWqu1ttZWq1V/eerHeuKtqdPo97oWO/8ll6ZpvV73H65qtfqpT33qv/yX/+Jnc4lIu92uVCp8MAHg3UBAArDiaK2r1apSqigKY0w5VUZrPTMzEwTBI488cs899wwNDbVaLQ7B4/wrzxr539br9bGxsWuvvfZb3/qWiMzMzDQaDd9QpMz5AIBzhYAEYMXx15S+K51/iXPOb1jKsuzP/uzPtm7dunPnThFJksRa21v64J493m2+Ytk7DTYIgmq1ev311zebzQceeMBvwIvjWOhiBwDvAgISgBWnPLwRhmEQBM65smnYyy+/fODAgbvvvrvT6eR5rrX2d/HZHobzpiwciUhRFHme+0i/evXq22+//dFHH52bm0vT1D+NjvMAcM4RkACsOH7OjDHGD3stiiIMwzAMjx49+uSTT/7Kr/xKFEU+DnU6HXIR+qicfZRlmXPu0ksv3bx589e+9rUgCObm5qQn7QMAzhUCEoAVR2td3pVP0zQIgjAMi6K49957N2/evH379qIoKpWKc65SqfR7sViJnHN+75xSyn99iogxJkmSW2+99ciRI6+99prvozg4ONjntQLAskNAArASOed8mcjvo7PWPvHEE1NTU+973/smJibKypJv5NDvxS5l7m3/hx/XW7f0PRv8S9asWXPnnXc++OCDxph2u92/BQLAskVAArDi9J5r949nZ2cfeuih97///QMDA2NjY8YYY4y/HqVL2E9Fve1f0aNMR8YY32tRes4m3XTTTQcPHnzhhReq1SpnkADgnCMgAVhxlFJRFPnHjUZjbm7umWeeSZLkuuuu8y8MgiAIAj+j0/cKw9kjI/0U/P46fxLJvyTP8yAIPv3pT3/729+enp4uY3ye5+UM2XK0FwDgLBCQAKxQnU5HRObm5pxzzzzzzO23397vFQFvxceearVaFMXatWuvuuqqb3zjG3Ecp2naarWiKHLO+S2jQRCQkQDgrBGQAKxEaZomSZLn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Jycn3/CGN+TvySc0AvDzEkjAipX/IfoLt89t3LhxcnLyv/7rv5IkWVhYqNVq+bw7OP6Nj0iSJMuyu++++5prrikWi8PhsFarJbaMAvwC/AcUWLEW7zIK60jhr4PBoFqtbtu2bc+ePa1WKxxntyWJ14r8TF1w3333TU1Nbdy4sdvthgXSLMuM+QY4ZgIJWLFeGEjhPeHtCy644NChQw8//HClUpmfnxdIvEbdc889v/Irv5IkSalUKhQKJjQA/IIEErBiHfWH6MViMaRRqVSan58vl8sf+tCHvvCFLyRJEo4hhUbKX1+ORqNutyucOE7kP5mFQmFubq5YLPZ6vXvvvbdUKoXp3v1+P0mSUqnU7/dlEsAxE0jACWc0GoUxX2ecccbGjRtvvfXWqampfJBdmqbD4TDLskKhUKvVXvQyJVh64bKjJEl6vd709PTBgweLxeJdd911ySWXTExMJIvmkYSNdsv5rACvZQIJOOHkR9vL5fJVV1117733ttvter2eZVk+qmEwGCzelQfHg2az2e/3w81d9Xr97rvvHo/HF198cZIko9EonKYbDoemMgL8IgQScMIJf7iepmmr1Vq/fv2ZZ555yy23hHf2er3RaJSmaf4S07hkjhNhB11Y6hwMBuPx+M4779yxY0epVAptX6lUkiQpFosCCeAXIZCAE9FgMCgWiyF+rrzyyr179z7xxBPlcrlUKoXDG6VSKdwt67Umx4nQ8KtXr15YWCiXy7fffvvrXve6jRs3jkaj0WgUflDD1tDkSE0BcAwEEnDCyV9Nrlq16tChQ+vXr7/oootuueWWwWBQLpfTNO31euHD8o12sOzyn8xGo7Fv377du3e/853vDL8U1o7G43G+4OkMEsAxE0jACWdx84RjG5dddlm32/3e9743HA6LxWLoonyuHRw/wgSRb3zjG1u2bDn11FNbrVZ+J+x4PA4/z4lAAvgFCCTghFMoFMIRjrm5uWazORgMpqent27devfdd8/NzSUGM3C86vV6aZred999Tz311BVXXJEkSaVSCXtBsyzLh9cNBoPlflKA1zCBBJyIKpVKoVCYmppKjiwiXXnlldPT0/fcc8+hQ4cmJycHg8FgMKhWq15rssTyUYqhfJIjV3JlWRbm0X/1q199z3veMzU1NTc3l6ZpuOBr8WG5fB0JgGMgkACiq6666v777w+n28PQ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IAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgEggAQAARAIJAAAgEkgAAACRQAIAAIgEEgAAQCSQAAAAIoEEAAAQCSQAAIBIIAEAAEQCCQAAIBJIAAAAkUACAACIBBIAAEAkkAAAACKBBAAAEL1kIHU6nSRJhsNhkiSFQqHX6yVJMhqNluzJAACAFS9N03a7XSwWkyTpdrvJckdH6aV+oV6vJ0nS6XTSNC2Xy2majsfjSqWyhM8GAACsfNVqNUmS8XicpmkojtFoFJJp6b1kIPV6vWKxODExEf52cnIyy7LhcJim6VI9GwAAsPKVSqUkScbjcblcLpfL4/F4MBiEalqGh3mpX8gfaH5+vlKpPP/884PBoFgsjsfjpXo2AABghRsMBuVyeTgchkzKsqxUKi1XHSUvE0ij0Sh0W71eL5VKs7Oza9eu7XQ6jUZjKZ8PAABYwcKeuvF4nGVZp9N55pln+v3+Mj7PSwZSsVjMt/2NRqOnnnrqRz/60V//9V/nm+4AAAB+Qd1uN03T4XC4atWqWq32xBNPrF27NiwrLcvzFF5my9xgMCgUCqPRqFKpjEajffv22V8HAAC8utI07XQ6YXmm3W6vWrVq3bp1y/UwLxlI3W63UqmEpxwOh8PhsFKpDIfD5ZomAQAArDz9fj+cOFo8EK7T6YSp2kvv5VaQAAAATiiWgwAAACKBBAAAEAkkAACASCABAABEAgkAACASSAAAAJFAAgAAiAQSAABAJJAAAAAigQQAABAJJAAAgOj/Ae6PLJEk4OKbAAAAAElFTkSuQmCC";
+courtImg.src = "data:image/png;base64," + COURT_IMG_DATA;
+
+// 즉시 캐시 체크 (이미 로드된 경우 onload 안 불릴 수 있음)
+if (courtImg.complete && courtImg.naturalWidth > 0) {
+  courtImgLoaded = true;
+}
+
+// 안전장치: 여러 시점에 다시 그리기 시도 (모바일 디코딩 지연 대응)
+setTimeout(function() {
+  if (!courtImgLoaded && courtImg.complete && courtImg.naturalWidth > 0) {
+    courtImgLoaded = true;
+  }
+  draw();
+}, 100);
+
+setTimeout(function() {
+  if (!courtImgLoaded && courtImg.complete && courtImg.naturalWidth > 0) {
+    courtImgLoaded = true;
+  }
+  draw();
+}, 500);
+
+setTimeout(function() {
+  if (!courtImgLoaded && courtImg.complete && courtImg.naturalWidth > 0) {
+    courtImgLoaded = true;
+  }
+  draw();
+}, 1500);
+
+// ==========================================
+// 상태
+// ==========================================
+const state = {
+  objects: [],
+  arrows: [],          // 방향선 배열
+  pairs: [],           // 페어 배열: { id, attackerId, defenderId, distance }
+  keyframes: [],
+  currentFrame: -1,
+  playing: false,
+  duration: 1.5,
+  draggingId: null,
+  dragOffset: { x: 0, y: 0 },
+  nextId: 1,
+  // 그리기 모드 관련
+  drawMode: false,
+  drawStyle: "straight",
+  drawColor: "#e74c3c",
+  drawingArrow: null,
+  // 페어 모드 관련
+  pairMode: false,           // 페어 생성 모드 ON/OFF
+  pairFirstSelected: null,   // 첫 번째 선택한 선수 (공격수)의 ID
+  pairPointerMoved: false,   // 페어 모드에서 드래그 vs 탭 구분용
+  // 선택 삭제 모드
+  deleteMode: false,
+  // 녹화 관련
+  recording: false,
+  recordedFrames: [],
+  recordStartTime: 0
+};
+
+// ==========================================
+// 객체 생성
+// ==========================================
+function makeObject(type, team, x, y) {
+  const teamCount = state.objects.filter(o => o.type === "player" && o.team === team).length;
+  return {
+    id: state.nextId++,
+    type: type,
+    team: team,
+    number: type === "player" ? teamCount + 1 : null,
+    x: x,
+    y: y
+  };
+}
+
+function addPlayer(team) {
+  const W = COURT.boxW;
+  const H = COURT.boxH;
+  const count = state.objects.filter(o => o.type === "player" && o.team === team).length;
+  let x, y;
+  if (team === "A") {
+    // 공격수: 골대에서 코트 안쪽(아래)에 배치
+    const positions = [
+      { dx: -0.32, dy: 0.30 },
+      { dx:  0.32, dy: 0.30 },
+      { dx: -0.18, dy: 0.55 },
+      { dx:  0.18, dy: 0.55 }
+    ];
+    const p = positions[count % 4];
+    x = COURT.postX + p.dx * W;
+    y = COURT.postY + p.dy * H;
+  } else {
+    // 수비수: 골대와 공격수 사이에 배치
+    const positions = [
+      { dx: -0.20, dy: 0.15 },
+      { dx:  0.20, dy: 0.15 },
+      { dx: -0.08, dy: 0.35 },
+      { dx:  0.08, dy: 0.35 }
+    ];
+    const p = positions[count % 4];
+    x = COURT.postX + p.dx * W;
+    y = COURT.postY + p.dy * H;
+  }
+  const overflow = Math.floor(count / 4);
+  if (overflow > 0) { x += overflow * 20; y += overflow * 15; }
+  state.objects.push(makeObject("player", team, x, y));
+  draw();
+  toast(team === "A" ? t("toast_added_attack") : t("toast_added_defense"));
+}
+
+function addBall() {
+  if (state.objects.find(o => o.type === "ball")) {
+    toast(t("toast_only_one_ball"));
+    return;
+  }
+  state.objects.push(makeObject("ball", null,
+    COURT.postX + COURT.boxW * 0.40,
+    COURT.postY - COURT.boxH * 0.05));
+  draw();
+  toast(t("toast_added_ball"));
+}
+
+function loadPreset() {
+  if (!confirm(t("toast_confirm_preset"))) return;
+  state.objects = [];
+  state.arrows = [];
+  state.pairs = [];
+  state.pairFirstSelected = null;
+  state.keyframes = [];
+  state.currentFrame = -1;
+  state.nextId = 1;
+  for (let i = 0; i < 4; i++) addPlayer("A");
+  for (let i = 0; i < 4; i++) addPlayer("B");
+  state.objects.push(makeObject("ball", null,
+    COURT.postX + COURT.boxW * 0.40,
+    COURT.postY - COURT.boxH * 0.05));
+  draw();
+  renderFrames();
+  updatePairStatus();
+  toast(t("toast_preset_loaded"));
+}
+
+function clearAll() {
+  if (!confirm(t("toast_confirm_clear"))) return;
+  state.objects = [];
+  state.arrows = [];
+  state.pairs = [];
+  state.pairFirstSelected = null;
+  state.keyframes = [];
+  state.currentFrame = -1;
+  state.nextId = 1;
+  draw();
+  renderFrames();
+  updatePairStatus();
+}
+
+// ==========================================
+// 그리기
+// ==========================================
+function drawCourt() {
+  // 배경
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, COURT.CANVAS_W, COURT.CANVAS_H);
+  // 코트 이미지 그대로
+  if (courtImgLoaded) {
+    ctx.drawImage(courtImg, 0, 0, COURT.CANVAS_W, COURT.CANVAS_H);
+  } else {
+    // 이미지 로드 실패 시 fallback - 텍스트 표시
+    ctx.fillStyle = "#888";
+    ctx.font = "14px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("코트 이미지 로드 중...", COURT.CANVAS_W/2, COURT.CANVAS_H/2);
+  }
+}
+
+function drawPlayer(p) {
+  const r = 18;
+  const isA = p.team === "A";
+  const color = isA ? "#ff6b35" : "#4ecdc4";
+  const textColor = isA ? "#fff" : "#0f1419";
+
+  // 그림자
+  ctx.beginPath();
+  ctx.arc(p.x + 2, p.y + 3, r, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(0,0,0,0.2)";
+  ctx.fill();
+
+  if (isA) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y - r);
+    ctx.lineTo(p.x + r, p.y + r * 0.7);
+    ctx.lineTo(p.x - r, p.y + r * 0.7);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = textColor;
+  ctx.font = "bold 14px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(p.number, p.x, p.y + (isA ? 0 : 4));
+}
+
+function drawBall(b) {
+  ctx.beginPath();
+  ctx.arc(b.x + 1, b.y + 2, 10, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(b.x, b.y, 10, 0, Math.PI * 2);
+  ctx.fillStyle = "#f1c40f";
+  ctx.fill();
+  ctx.strokeStyle = "#7d6608";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(b.x - 3, b.y - 3, 3, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.fill();
+}
+
+function drawObject(obj) {
+  if (obj.type === "player") drawPlayer(obj);
+  else if (obj.type === "ball") drawBall(obj);
+}
+
+// ==========================================
+// 화살표(방향선) 그리기 - 직선/자유 곡선 지원
+// ==========================================
+function drawArrow(arrow, opacity) {
+  if (opacity === undefined) opacity = 1.0;
+
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.strokeStyle = arrow.color;
+  ctx.fillStyle = arrow.color;
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  if (arrow.type === "freehand" && arrow.points && arrow.points.length > 1) {
+    // 자유 곡선
+    const pts = arrow.points;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    // 부드럽게 이어서 그리기
+    for (let i = 1; i < pts.length; i++) {
+      ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    ctx.stroke();
+    // 끝점에 작은 화살표 머리 (방향성 표시)
+    if (pts.length >= 2) {
+      const last = pts[pts.length - 1];
+      const prev = pts[pts.length - 2];
+      const dx = last.x - prev.x, dy = last.y - prev.y;
+      const len = Math.sqrt(dx*dx + dy*dy);
+      if (len > 5) {
+        const angle = Math.atan2(dy, dx);
+        const headLen = 12;
+        ctx.beginPath();
+        ctx.moveTo(last.x, last.y);
+        ctx.lineTo(
+          last.x - Math.cos(angle - Math.PI/6) * headLen,
+          last.y - Math.sin(angle - Math.PI/6) * headLen
+        );
+        ctx.lineTo(
+          last.x - Math.cos(angle + Math.PI/6) * headLen,
+          last.y - Math.sin(angle + Math.PI/6) * headLen
+        );
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  } else {
+    // 직선 화살표 (기존 방식)
+    const fx = arrow.fromX, fy = arrow.fromY;
+    const tx = arrow.toX, ty = arrow.toY;
+    const dx = tx - fx, dy = ty - fy;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    if (len < 5) { ctx.restore(); return; }
+
+    const headLen = 14;
+    const angle = Math.atan2(dy, dx);
+    const lineEndX = tx - Math.cos(angle) * headLen * 0.8;
+    const lineEndY = ty - Math.sin(angle) * headLen * 0.8;
+
+    ctx.beginPath();
+    ctx.moveTo(fx, fy);
+    ctx.lineTo(lineEndX, lineEndY);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(
+      tx - Math.cos(angle - Math.PI/6) * headLen,
+      ty - Math.sin(angle - Math.PI/6) * headLen
+    );
+    ctx.lineTo(
+      tx - Math.cos(angle + Math.PI/6) * headLen,
+      ty - Math.sin(angle + Math.PI/6) * headLen
+    );
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+// 화살표 클릭 감지 (직선 + 자유 곡선)
+function findArrowAt(x, y) {
+  const threshold = 10;
+  for (let i = state.arrows.length - 1; i >= 0; i--) {
+    const a = state.arrows[i];
+    if (a.type === "freehand" && a.points) {
+      // 자유 곡선: 모든 점-점 사이 선분 체크
+      for (let j = 0; j < a.points.length - 1; j++) {
+        const dist = pointToSegmentDist(x, y, a.points[j].x, a.points[j].y, a.points[j+1].x, a.points[j+1].y);
+        if (dist <= threshold) return a;
+      }
+    } else {
+      // 직선
+      const dist = pointToSegmentDist(x, y, a.fromX, a.fromY, a.toX, a.toY);
+      if (dist <= threshold) return a;
+    }
+  }
+  return null;
+}
+
+function pointToSegmentDist(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const lenSq = dx*dx + dy*dy;
+  if (lenSq === 0) return Math.sqrt((px-x1)*(px-x1) + (py-y1)*(py-y1));
+  let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const closestX = x1 + t * dx;
+  const closestY = y1 + t * dy;
+  return Math.sqrt((px-closestX)*(px-closestX) + (py-closestY)*(py-closestY));
+}
+
+// ==========================================
+// 실시간 녹화 시스템 (간편 모드)
+// ==========================================
+let recordTimer = null;
+
+function recordingTick() {
+  if (!state.recording) return;
+  const now = performance.now() - state.recordStartTime;
+  state.recordedFrames.push({
+    time: now,
+    objects: state.objects.map(function(o) {
+      return { id: o.id, x: o.x, y: o.y };
+    }),
+    arrows: state.arrows.map(function(a) {
+      if (a.type === "freehand") {
+        return {
+          id: a.id, type: "freehand", color: a.color,
+          points: a.points.map(function(p) { return { x: p.x, y: p.y }; })
+        };
+      } else {
+        return {
+          id: a.id, type: a.type || "straight", color: a.color,
+          fromX: a.fromX, fromY: a.fromY, toX: a.toX, toY: a.toY,
+          fromPlayerId: a.fromPlayerId
+        };
+      }
+    }),
+    pairs: state.pairs.map(function(p) { return Object.assign({}, p); }),
+    drawingArrow: state.drawingArrow ? (function(a) {
+      if (a.type === "freehand") {
+        return {
+          type: "freehand", color: a.color,
+          points: a.points.map(function(p) { return { x: p.x, y: p.y }; })
+        };
+      } else {
+        return Object.assign({}, a);
+      }
+    })(state.drawingArrow) : null
+  });
+  recordTimer = requestAnimationFrame(recordingTick);
+}
+
+function startRecording() {
+  if (state.recording) return;
+  if (state.recordedFrames.length > 0) {
+    if (!confirm(t("toast_confirm_clear_recording"))) return;
+    state.recordedFrames = [];
+  }
+  state.recording = true;
+  state.recordStartTime = performance.now();
+  state.recordedFrames = [];
+  recordingTick();
+  updateRecordingUI();
+  toast(t("toast_recording_started"));
+}
+
+function stopRecording() {
+  if (!state.recording) return;
+  state.recording = false;
+  if (recordTimer) {
+    cancelAnimationFrame(recordTimer);
+    recordTimer = null;
+  }
+  updateRecordingUI();
+  toast(t("toast_recording_stopped"));
+}
+
+function clearRecording() {
+  if (state.recordedFrames.length === 0) return;
+  if (!confirm(t("toast_confirm_clear_recording"))) return;
+  state.recordedFrames = [];
+  state.recording = false;
+  if (recordTimer) {
+    cancelAnimationFrame(recordTimer);
+    recordTimer = null;
+  }
+  updateRecordingUI();
+  toast(t("toast_recording_cleared"));
+}
+
+function updateRecordingUI() {
+  const startBtn = document.getElementById("recordStartBtn");
+  const stopBtn = document.getElementById("recordStopBtn");
+  const statusEl = document.getElementById("recordStatus");
+  if (!startBtn) return;
+
+  if (state.recording) {
+    startBtn.style.display = "none";
+    stopBtn.style.display = "inline-flex";
+    statusEl.textContent = t("label_recording");
+    statusEl.style.color = "#e74c3c";
+    statusEl.classList.add("recording-blink");
+  } else {
+    startBtn.style.display = "inline-flex";
+    stopBtn.style.display = "none";
+    statusEl.classList.remove("recording-blink");
+    if (state.recordedFrames.length > 0) {
+      const lastTime = state.recordedFrames[state.recordedFrames.length - 1].time;
+      statusEl.textContent = t("label_recorded").replace("{n}", (lastTime / 1000).toFixed(1));
+      statusEl.style.color = "var(--accent-2)";
+    } else {
+      statusEl.textContent = t("label_no_recording");
+      statusEl.style.color = "var(--muted)";
+    }
+  }
+}
+
+function renderRecordedFrame(timeMs) {
+  const frames = state.recordedFrames;
+  if (frames.length === 0) return;
+  // 이진 탐색
+  let lo = 0, hi = frames.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (frames[mid].time < timeMs) lo = mid + 1;
+    else hi = mid;
+  }
+  const frame = frames[lo];
+  frame.objects.forEach(function(o) {
+    const obj = state.objects.find(x => x.id === o.id);
+    if (obj) { obj.x = o.x; obj.y = o.y; }
+  });
+  state.arrows = frame.arrows.map(function(a) {
+    if (a.type === "freehand") {
+      return {
+        id: a.id, type: "freehand", color: a.color,
+        points: a.points.map(function(p) { return { x: p.x, y: p.y }; })
+      };
+    } else {
+      return Object.assign({}, a);
+    }
+  });
+  // 페어 복원
+  state.pairs = frame.pairs ? frame.pairs.map(function(p) { return Object.assign({}, p); }) : [];
+  state.drawingArrow = frame.drawingArrow;
+  draw();
+}
+
+function saveRecordedGIF() {
+  if (state.recordedFrames.length < 2) {
+    toast(t("toast_no_recording"));
+    return;
+  }
+  if (typeof GIF === "undefined") {
+    toast(t("toast_gif_lib_fail"));
+    return;
+  }
+  toast(t("toast_gif_creating"));
+
+  const fps = 15;
+  const totalMs = state.recordedFrames[state.recordedFrames.length - 1].time;
+  const totalFrames = Math.max(2, Math.ceil(totalMs / 1000 * fps));
+
+  const workerScript = "importScripts('https://cdn.jsdelivr.net/gh/jnordberg/gif.js@0.2.0/dist/gif.worker.js');";
+  const workerBlob = new Blob([workerScript], { type: "application/javascript" });
+  const workerUrl = URL.createObjectURL(workerBlob);
+
+  const gif = new GIF({
+    workers: 2,
+    quality: 10,
+    width: COURT.CANVAS_W,
+    height: COURT.CANVAS_H,
+    workerScript: workerUrl
+  });
+
+  const savedObjects = state.objects.map(function(o) { return { id: o.id, x: o.x, y: o.y }; });
+  const savedArrows = state.arrows.slice();
+
+  for (let f = 0; f < totalFrames; f++) {
+    const t_ms = (f / fps) * 1000;
+    renderRecordedFrame(t_ms);
+    gif.addFrame(canvas, { copy: true, delay: 1000/fps });
+    updateProgress(f / totalFrames * 0.5);
+  }
+
+  savedObjects.forEach(function(o) {
+    const obj = state.objects.find(x => x.id === o.id);
+    if (obj) { obj.x = o.x; obj.y = o.y; }
+  });
+  state.arrows = savedArrows;
+  draw();
+
+  gif.on("progress", function(p) { updateProgress(0.5 + p * 0.5); });
+  gif.on("finished", function(blob) {
+    updateProgress(0);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "korfball_recording_" + Date.now() + ".gif";
+    a.click();
+    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(workerUrl);
+    toast(t("toast_gif_done"));
+  });
+  gif.render();
+}
+
+function saveRecordedVideo() {
+  if (state.recordedFrames.length < 2) {
+    toast(t("toast_no_recording"));
+    return;
+  }
+  if (!canvas.captureStream) {
+    toast(t("toast_video_unsupported"));
+    return;
+  }
+  toast(t("toast_video_recording"));
+
+  const stream = canvas.captureStream(30);
+  const recorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp9" });
+  const chunks = [];
+  recorder.ondataavailable = function(e) { if (e.data.size > 0) chunks.push(e.data); };
+  recorder.onstop = function() {
+    const blob = new Blob(chunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "korfball_recording_" + Date.now() + ".webm";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(t("toast_video_done"));
+  };
+
+  const savedObjects = state.objects.map(function(o) { return { id: o.id, x: o.x, y: o.y }; });
+  const savedArrows = state.arrows.slice();
+
+  recorder.start();
+  const totalMs = state.recordedFrames[state.recordedFrames.length - 1].time;
+  const playStart = performance.now();
+  function playFrame() {
+    const elapsed = performance.now() - playStart;
+    if (elapsed >= totalMs) {
+      renderRecordedFrame(totalMs);
+      setTimeout(function() {
+        recorder.stop();
+        savedObjects.forEach(function(o) {
+          const obj = state.objects.find(x => x.id === o.id);
+          if (obj) { obj.x = o.x; obj.y = o.y; }
+        });
+        state.arrows = savedArrows;
+        draw();
+      }, 100);
+      return;
+    }
+    renderRecordedFrame(elapsed);
+    requestAnimationFrame(playFrame);
+  }
+  requestAnimationFrame(playFrame);
+}
+
+// 그리기 모드 토글
+function toggleDrawMode() {
+  state.drawMode = !state.drawMode;
+  const btn = document.getElementById("drawModeBtn");
+  if (state.drawMode) {
+    btn.textContent = t("btn_draw_mode_on");
+    btn.classList.add("primary");
+    canvas.style.cursor = "crosshair";
+    // 페어 모드는 끄기 (서로 배타)
+    if (state.pairMode) {
+      state.pairMode = false;
+      state.pairFirstSelected = null;
+      const pairBtn = document.getElementById("pairModeBtn");
+      if (pairBtn) {
+        pairBtn.textContent = t("btn_pair_mode");
+        pairBtn.classList.remove("primary");
+      }
+      updatePairStatus();
+    }
+    // 선택 삭제 모드도 끄기
+    if (state.deleteMode) {
+      state.deleteMode = false;
+      const dBtn = document.getElementById("deleteModeBtn");
+      if (dBtn) {
+        dBtn.textContent = t("btn_delete_mode");
+        dBtn.classList.remove("danger");
+      }
+    }
+    toast(t("toast_draw_on"));
+  } else {
+    btn.textContent = t("btn_draw_mode");
+    btn.classList.remove("primary");
+    canvas.style.cursor = "grab";
+    toast(t("toast_draw_off"));
+  }
+  draw();
+}
+
+// 색상 선택
+function setDrawColor(color) {
+  state.drawColor = color;
+  document.querySelectorAll(".color-swatch").forEach(function(el) {
+    el.classList.remove("active");
+  });
+  const active = document.querySelector(".color-swatch[data-color='" + color + "']");
+  if (active) active.classList.add("active");
+}
+
+// 그리기 스타일 선택 (직선/자유 곡선)
+function setDrawStyle(style) {
+  state.drawStyle = style;
+  document.querySelectorAll(".style-btn").forEach(function(el) {
+    el.classList.remove("active");
+  });
+  const active = document.querySelector(".style-btn[data-style='" + style + "']");
+  if (active) active.classList.add("active");
+}
+
+// 모든 화살표 삭제
+function clearAllArrows() {
+  if (state.arrows.length === 0) return;
+  if (!confirm(t("toast_confirm_clear_arrows"))) return;
+  state.arrows = [];
+  // 모든 키프레임에서도 화살표 제거
+  state.keyframes.forEach(function(kf) {
+    kf.arrows = [];
+  });
+  draw();
+  toast(t("toast_arrows_cleared"));
+}
+
+// ==========================================
+// 페어 그룹화 (1:1 마크) 시스템
+// ==========================================
+// 페어 모드 토글
+function togglePairMode() {
+  state.pairMode = !state.pairMode;
+  state.pairFirstSelected = null;
+  const btn = document.getElementById("pairModeBtn");
+  if (state.pairMode) {
+    btn.textContent = t("btn_pair_mode_on");
+    btn.classList.add("primary");
+    // 그리기 모드는 끄기 (서로 배타)
+    if (state.drawMode) toggleDrawMode();
+    // 선택 삭제 모드도 끄기
+    if (state.deleteMode) {
+      state.deleteMode = false;
+      const dBtn = document.getElementById("deleteModeBtn");
+      if (dBtn) {
+        dBtn.textContent = t("btn_delete_mode");
+        dBtn.classList.remove("danger");
+      }
+    }
+    toast(t("toast_pair_mode_on"));
+  } else {
+    btn.textContent = t("btn_pair_mode");
+    btn.classList.remove("primary");
+    toast(t("toast_pair_mode_off"));
+  }
+  updatePairStatus();
+  draw();
+}
+
+// 선수가 이미 페어에 속해 있는지 확인
+function isInPair(playerId) {
+  return state.pairs.some(function(p) {
+    return p.attackerId === playerId || p.defenderId === playerId;
+  });
+}
+
+// 페어 생성 처리 (페어 모드에서 선수 탭/클릭 시 호출)
+function handlePairSelection(player) {
+  if (!player || player.type !== "player") return;
+
+  if (state.pairFirstSelected === null) {
+    // 첫 번째 선택: 공격수만 가능
+    if (player.team !== "A") {
+      toast(t("toast_pair_only_attack"));
+      return;
+    }
+    if (isInPair(player.id)) {
+      toast(t("toast_pair_already"));
+      return;
+    }
+    state.pairFirstSelected = player.id;
+    updatePairStatus();
+    toast(t("toast_pair_select_defender"));
+    draw();
+  } else {
+    // 두 번째 선택: 수비수만 가능
+    if (player.id === state.pairFirstSelected) {
+      // 같은 선수 다시 선택 = 취소
+      state.pairFirstSelected = null;
+      toast(t("toast_pair_cancelled"));
+      updatePairStatus();
+      draw();
+      return;
+    }
+    if (player.team !== "B") {
+      toast(t("toast_pair_only_defense"));
+      return;
+    }
+    if (isInPair(player.id)) {
+      toast(t("toast_pair_already"));
+      return;
+    }
+    // 페어 생성!
+    const attacker = state.objects.find(o => o.id === state.pairFirstSelected);
+    const defender = player;
+    // 현재 공격수-수비수 사이의 거리를 페어의 기준 거리로 저장
+    const dx = attacker.x - defender.x;
+    const dy = attacker.y - defender.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    state.pairs.push({
+      id: state.nextId++,
+      attackerId: attacker.id,
+      defenderId: defender.id,
+      distance: Math.max(30, Math.min(100, dist))  // 30~100 픽셀 범위로 클램프
+    });
+    state.pairFirstSelected = null;
+    // 페어 생성 후 페어 모드 자동 종료 (드래그로 바로 이동 가능하게)
+    state.pairMode = false;
+    const pairBtn = document.getElementById("pairModeBtn");
+    if (pairBtn) {
+      pairBtn.textContent = t("btn_pair_mode");
+      pairBtn.classList.remove("primary");
+    }
+    // 즉시 수비수 위치 보정
+    updatePairedDefenders();
+    draw();
+    updatePairStatus();
+    toast(t("toast_pair_created"));
+  }
+}
+
+// 페어에 속한 수비수의 위치를 갱신
+// 규칙: 수비수는 공격수와 골대를 잇는 선분 위에 위치 (공격수에서 distance 만큼 골대 쪽으로)
+function updatePairedDefenders() {
+  state.pairs.forEach(function(pair) {
+    const attacker = state.objects.find(o => o.id === pair.attackerId);
+    const defender = state.objects.find(o => o.id === pair.defenderId);
+    if (!attacker || !defender) return;
+
+    // 공격수에서 골대 방향의 단위벡터
+    const dx = COURT.postX - attacker.x;
+    const dy = COURT.postY - attacker.y;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    if (len < 0.001) {
+      // 공격수가 골대와 거의 같은 위치면 수비수도 그 옆에
+      defender.x = attacker.x;
+      defender.y = attacker.y + pair.distance;
+      return;
+    }
+    const ux = dx / len;
+    const uy = dy / len;
+    // 골대까지 거리가 페어 거리보다 짧으면, 수비수는 골대에 더 가깝게
+    const dDist = Math.min(pair.distance, len * 0.7);
+    defender.x = attacker.x + ux * dDist;
+    defender.y = attacker.y + uy * dDist;
+  });
+}
+
+// 페어 클릭 감지 (페어 라인 위 클릭 → 페어 해제)
+function findPairAt(x, y) {
+  const threshold = 8;
+  for (let i = state.pairs.length - 1; i >= 0; i--) {
+    const p = state.pairs[i];
+    const a = state.objects.find(o => o.id === p.attackerId);
+    const d = state.objects.find(o => o.id === p.defenderId);
+    if (!a || !d) continue;
+    const dist = pointToSegmentDist(x, y, a.x, a.y, d.x, d.y);
+    if (dist <= threshold) return p;
+  }
+  return null;
+}
+
+// 모든 페어 해제
+function clearAllPairs() {
+  if (state.pairs.length === 0) return;
+  if (!confirm(t("toast_confirm_clear_pairs"))) return;
+  state.pairs = [];
+  state.pairFirstSelected = null;
+  // 키프레임/녹화에서도 페어 제거
+  state.keyframes.forEach(function(kf) {
+    if (kf.pairs) kf.pairs = [];
+  });
+  draw();
+  updatePairStatus();
+  toast(t("toast_pairs_cleared"));
+}
+
+// 페어 상태 표시 업데이트
+function updatePairStatus() {
+  const el = document.getElementById("pairStatus");
+  if (!el) return;
+  if (state.pairMode && state.pairFirstSelected !== null) {
+    el.textContent = currentLang === "ko"
+      ? "공격수 선택됨 → 이제 수비수를 탭하세요"
+      : "Attacker selected → now tap a defender";
+    el.style.color = "#9b59b6";
+  } else if (state.pairMode) {
+    el.textContent = currentLang === "ko"
+      ? "페어 모드 ON → 공격수를 탭하세요"
+      : "Pair mode ON → tap an attacker";
+    el.style.color = "#9b59b6";
+  } else if (state.pairs.length > 0) {
+    el.textContent = currentLang === "ko"
+      ? "✅ 페어 " + state.pairs.length + "쌍 활성 중"
+      : "✅ " + state.pairs.length + " pair(s) active";
+    el.style.color = "var(--accent-2)";
+  } else {
+    el.textContent = t("label_no_pair");
+    el.style.color = "var(--muted)";
+  }
+  // 페어 목록 함께 갱신
+  renderPairList();
+}
+
+// 페어 목록 UI 렌더링 (개별 해제 가능)
+function renderPairList() {
+  const listEl = document.getElementById("pairList");
+  const itemsEl = document.getElementById("pairListItems");
+  if (!listEl || !itemsEl) return;
+
+  if (state.pairs.length === 0) {
+    listEl.style.display = "none";
+    itemsEl.innerHTML = "";
+    return;
+  }
+
+  listEl.style.display = "block";
+  const xLabel = currentLang === "ko" ? "해제" : "remove";
+  itemsEl.innerHTML = state.pairs.map(function(p) {
+    const attacker = state.objects.find(o => o.id === p.attackerId);
+    const defender = state.objects.find(o => o.id === p.defenderId);
+    if (!attacker || !defender) return "";
+    const aNum = attacker.number;
+    const dNum = defender.number;
+    return '<span class="pair-chip" onclick="removePair(' + p.id + ')" title="' + xLabel + '">'
+         + '<span style="color:#ff6b35; font-weight:600">A' + aNum + '</span>'
+         + '<span style="opacity:0.6">↔</span>'
+         + '<span style="color:#4ecdc4; font-weight:600">B' + dNum + '</span>'
+         + '<span class="pair-x">×</span>'
+         + '</span>';
+  }).join("");
+}
+
+// 개별 페어 해제
+function removePair(pairId) {
+  const idx = state.pairs.findIndex(p => p.id === pairId);
+  if (idx < 0) return;
+  const pair = state.pairs[idx];
+  const attacker = state.objects.find(o => o.id === pair.attackerId);
+  const defender = state.objects.find(o => o.id === pair.defenderId);
+  const aLabel = attacker ? ("A" + attacker.number) : "?";
+  const dLabel = defender ? ("B" + defender.number) : "?";
+
+  state.pairs.splice(idx, 1);
+  // 키프레임에서도 동일 페어 제거
+  state.keyframes.forEach(function(kf) {
+    if (kf.pairs) kf.pairs = kf.pairs.filter(p => p.id !== pairId);
+  });
+  draw();
+  updatePairStatus();
+  const msg = currentLang === "ko"
+    ? "페어 해제: " + aLabel + " ↔ " + dLabel
+    : "Pair removed: " + aLabel + " ↔ " + dLabel;
+  toast(msg);
+}
+
+// ==========================================
+// 선택 삭제 모드 (선수/공 위에 X 표시)
+// ==========================================
+function toggleDeleteMode() {
+  state.deleteMode = !state.deleteMode;
+  const btn = document.getElementById("deleteModeBtn");
+  if (state.deleteMode) {
+    btn.textContent = t("btn_delete_mode_on");
+    btn.classList.add("danger");
+    // 다른 모드와 상호 배타
+    if (state.drawMode) {
+      state.drawMode = false;
+      const dBtn = document.getElementById("drawModeBtn");
+      if (dBtn) {
+        dBtn.textContent = t("btn_draw_mode");
+        dBtn.classList.remove("primary");
+      }
+      canvas.style.cursor = "pointer";
+    }
+    if (state.pairMode) {
+      state.pairMode = false;
+      state.pairFirstSelected = null;
+      const pBtn = document.getElementById("pairModeBtn");
+      if (pBtn) {
+        pBtn.textContent = t("btn_pair_mode");
+        pBtn.classList.remove("primary");
+      }
+      updatePairStatus();
+    }
+    canvas.style.cursor = "pointer";
+    toast(t("toast_delete_mode_on"));
+  } else {
+    btn.textContent = t("btn_delete_mode");
+    btn.classList.remove("danger");
+    canvas.style.cursor = "grab";
+    toast(t("toast_delete_mode_off"));
+  }
+  draw();
+}
+
+// 객체 위에 X 표시 그리기 (선택 삭제 모드 ON일 때)
+function drawDeleteButtons() {
+  ctx.save();
+  state.objects.forEach(function(o) {
+    const r = o.type === "ball" ? 10 : 18;
+    // 오른쪽 위에 X 원 표시
+    const bx = o.x + r * 0.85;
+    const by = o.y - r * 0.85;
+    const br = 11;
+    // 배경 원 (빨간색)
+    ctx.beginPath();
+    ctx.arc(bx, by, br, 0, Math.PI * 2);
+    ctx.fillStyle = "#e74c3c";
+    ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // X 표시
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(bx - 4, by - 4);
+    ctx.lineTo(bx + 4, by + 4);
+    ctx.moveTo(bx + 4, by - 4);
+    ctx.lineTo(bx - 4, by + 4);
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+// X 버튼 클릭 감지
+function findDeleteButtonAt(x, y) {
+  for (let i = state.objects.length - 1; i >= 0; i--) {
+    const o = state.objects[i];
+    const r = o.type === "ball" ? 10 : 18;
+    const bx = o.x + r * 0.85;
+    const by = o.y - r * 0.85;
+    const br = 13; // 클릭 영역은 살짝 더 크게
+    const dx = x - bx, dy = y - by;
+    if (dx*dx + dy*dy <= br*br) return o;
+  }
+  return null;
+}
+
+// 선수/공 한 명 삭제 (확인창 없이 즉시 삭제)
+function deleteObject(obj) {
+  if (!obj) return;
+  const label = obj.type === "player"
+    ? ((obj.team === "A" ? "A" : "B") + obj.number)
+    : (currentLang === "ko" ? "공" : "Ball");
+  state.objects = state.objects.filter(o => o.id !== obj.id);
+  // 키프레임에서 위치 제거
+  state.keyframes.forEach(function(kf) {
+    if (kf.positions) delete kf.positions[obj.id];
+  });
+  // 화살표 중 이 선수와 관련된 것 제거
+  state.arrows = state.arrows.filter(a => a.fromPlayerId !== obj.id);
+  state.keyframes.forEach(function(kf) {
+    if (kf.arrows) kf.arrows = kf.arrows.filter(a => a.fromPlayerId !== obj.id);
+  });
+  // 페어에서 이 선수 제거
+  state.pairs = state.pairs.filter(function(p) {
+    return p.attackerId !== obj.id && p.defenderId !== obj.id;
+  });
+  state.keyframes.forEach(function(kf) {
+    if (kf.pairs) kf.pairs = kf.pairs.filter(function(p) {
+      return p.attackerId !== obj.id && p.defenderId !== obj.id;
+    });
+  });
+  draw();
+  updatePairStatus();
+  const msg = currentLang === "ko"
+    ? label + " 삭제됨"
+    : label + " deleted";
+  toast(msg);
+}
+
+// 페어 시각화 그리기
+function drawPair(pair, opacity) {
+  if (opacity === undefined) opacity = 0.45;
+  const a = state.objects.find(o => o.id === pair.attackerId);
+  const d = state.objects.find(o => o.id === pair.defenderId);
+  if (!a || !d) return;
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  // 공격수 ↔ 수비수 점선
+  ctx.strokeStyle = "#9b59b6";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(d.x, d.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // 수비수 → 골대 점선 (수비 라인 시각화)
+  ctx.strokeStyle = "#9b59b6";
+  ctx.globalAlpha = opacity * 0.5;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([3, 4]);
+  ctx.beginPath();
+  ctx.moveTo(d.x, d.y);
+  ctx.lineTo(COURT.postX, COURT.postY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+// 페어 모드에서 첫 번째 선택된 선수 강조 표시
+function drawPairFirstSelected() {
+  if (state.pairFirstSelected === null) return;
+  const p = state.objects.find(o => o.id === state.pairFirstSelected);
+  if (!p) return;
+  ctx.save();
+  ctx.strokeStyle = "#9b59b6";
+  ctx.lineWidth = 3;
+  ctx.setLineDash([5, 3]);
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, 28, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, COURT.CANVAS_W, COURT.CANVAS_H);
+  drawCourt();
+  if (state.currentFrame > 0 && !state.playing) drawTrails();
+  // 페어 시각화 (객체보다 아래에)
+  state.pairs.forEach(function(p) { drawPair(p); });
+  // 화살표 (페어 위에)
+  state.arrows.forEach(function(a) { drawArrow(a, 0.85); });
+  if (state.drawingArrow) {
+    drawArrow(state.drawingArrow, 0.5);
+  }
+  // 페어 모드에서 첫 번째 선택된 선수 강조
+  if (state.pairMode) {
+    drawPairFirstSelected();
+  }
+  state.objects.forEach(drawObject);
+  // 선택 삭제 모드: 모든 객체 위에 X 표시
+  if (state.deleteMode) {
+    drawDeleteButtons();
+  }
+}
+
+function drawTrails() {
+  const prev = state.keyframes[state.currentFrame - 1];
+  if (!prev) return;
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  state.objects.forEach(obj => {
+    const prevPos = prev.positions[obj.id];
+    if (prevPos) {
+      ctx.strokeStyle = obj.type === "ball" ? "#f1c40f" : (obj.team === "A" ? "#ff6b35" : "#4ecdc4");
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(prevPos.x, prevPos.y);
+      ctx.lineTo(obj.x, obj.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  });
+  ctx.restore();
+}
+
+// ==========================================
+// 인터랙션
+// ==========================================
+function getCanvasPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = COURT.CANVAS_W / rect.width;
+  const scaleY = COURT.CANVAS_H / rect.height;
+  // 터치 이벤트 처리 (touchend에서는 touches가 비어있고 changedTouches에 마지막 좌표가 있음)
+  let clientX, clientY;
+  if (e.touches && e.touches.length > 0) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else if (e.changedTouches && e.changedTouches.length > 0) {
+    clientX = e.changedTouches[0].clientX;
+    clientY = e.changedTouches[0].clientY;
+  } else {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  }
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY
+  };
+}
+
+function findObjectAt(x, y) {
+  for (let i = state.objects.length - 1; i >= 0; i--) {
+    const o = state.objects[i];
+    const r = o.type === "ball" ? 12 : 20;
+    const dx = x - o.x, dy = y - o.y;
+    if (dx*dx + dy*dy <= r*r) return o;
+  }
+  return null;
+}
+
+function onPointerDown(e) {
+  e.preventDefault();
+  const pos = getCanvasPos(e);
+
+  // 선택 삭제 모드: X 버튼을 누르면 삭제, 다른 곳은 무시
+  if (state.deleteMode) {
+    const delObj = findDeleteButtonAt(pos.x, pos.y);
+    if (delObj) {
+      deleteObject(delObj);
+    }
+    return;
+  }
+
+  // 페어 모드: 포인터 이동 여부를 추적하기 위한 초기화
+  if (state.pairMode) {
+    state.pairPointerMoved = false;
+    state._pairDownPos = { x: pos.x, y: pos.y };
+    state._pairDownObj = findObjectAt(pos.x, pos.y);
+    // 드래그도 허용하기 위해 드래그 시작도 함께 처리
+    const obj = state._pairDownObj;
+    if (obj) {
+      state.draggingId = obj.id;
+      state.dragOffset = { x: pos.x - obj.x, y: pos.y - obj.y };
+      canvas.classList.add("dragging");
+    }
+    return;
+  }
+
+  // 그리기 모드
+  if (state.drawMode) {
+    if (state.drawStyle === "freehand") {
+      state.drawingArrow = {
+        type: "freehand",
+        points: [{ x: pos.x, y: pos.y }],
+        color: state.drawColor
+      };
+      canvas.classList.add("dragging");
+    } else {
+      const obj = findObjectAt(pos.x, pos.y);
+      if (obj && obj.type === "player") {
+        state.drawingArrow = {
+          type: "straight",
+          fromX: obj.x,
+          fromY: obj.y,
+          toX: pos.x,
+          toY: pos.y,
+          color: state.drawColor,
+          fromPlayerId: obj.id
+        };
+        canvas.classList.add("dragging");
+      }
+    }
+    return;
+  }
+
+  // 일반 모드: 객체 드래그
+  const obj = findObjectAt(pos.x, pos.y);
+  if (obj) {
+    state.draggingId = obj.id;
+    state.dragOffset = { x: pos.x - obj.x, y: pos.y - obj.y };
+    canvas.classList.add("dragging");
+  }
+}
+
+function onPointerMove(e) {
+  const pos = getCanvasPos(e);
+
+  // 그리기 모드 - 드래그 중인 화살표/곡선 업데이트
+  if (state.drawingArrow) {
+    e.preventDefault();
+    if (state.drawingArrow.type === "freehand") {
+      const pts = state.drawingArrow.points;
+      const last = pts[pts.length - 1];
+      const dx = pos.x - last.x, dy = pos.y - last.y;
+      if (dx*dx + dy*dy > 9) {
+        pts.push({ x: pos.x, y: pos.y });
+      }
+    } else {
+      state.drawingArrow.toX = pos.x;
+      state.drawingArrow.toY = pos.y;
+    }
+    draw();
+    return;
+  }
+
+  // 페어 모드에서 이동 추적 (드래그 vs 탭 구분)
+  if (state.pairMode && state._pairDownPos) {
+    const dx = pos.x - state._pairDownPos.x;
+    const dy = pos.y - state._pairDownPos.y;
+    if (dx*dx + dy*dy > 64) { // 8픽셀 이상 움직이면 드래그로 판정
+      state.pairPointerMoved = true;
+    }
+  }
+
+  // 일반 모드 - 객체 이동 (페어 모드에서도 드래그 허용)
+  if (state.draggingId === null) return;
+  e.preventDefault();
+  const obj = state.objects.find(o => o.id === state.draggingId);
+  if (obj) {
+    obj.x = Math.max(10, Math.min(COURT.CANVAS_W - 10, pos.x - state.dragOffset.x));
+    obj.y = Math.max(10, Math.min(COURT.CANVAS_H - 10, pos.y - state.dragOffset.y));
+    // 공격수가 움직였으면 페어된 수비수도 자동으로 따라옴
+    // (수비수가 직접 드래그되면 페어 규칙을 일시적으로 위반할 수 있게 그대로 둠)
+    if (obj.type === "player" && obj.team === "A") {
+      updatePairedDefenders();
+    }
+    draw();
+  }
+}
+
+function onPointerUp() {
+  // 페어 모드: 드래그를 안 했을 때만(탭) 페어 선택 처리
+  if (state.pairMode && !state.pairPointerMoved && state._pairDownObj) {
+    const obj = state._pairDownObj;
+    if (obj.type === "player") {
+      handlePairSelection(obj);
+    }
+  }
+  state._pairDownObj = null;
+  state._pairDownPos = null;
+  state.pairPointerMoved = false;
+
+  // 그리기 모드 - 화살표/곡선 확정
+  if (state.drawingArrow) {
+    const a = state.drawingArrow;
+    if (a.type === "freehand") {
+      // 자유 곡선: 점이 2개 이상이고 충분히 길면 추가
+      if (a.points.length >= 2) {
+        const totalLen = a.points.reduce(function(sum, pt, i) {
+          if (i === 0) return 0;
+          const dx = pt.x - a.points[i-1].x, dy = pt.y - a.points[i-1].y;
+          return sum + Math.sqrt(dx*dx + dy*dy);
+        }, 0);
+        if (totalLen > 20) {
+          state.arrows.push({
+            id: state.nextId++,
+            type: "freehand",
+            points: a.points.slice(),
+            color: a.color
+          });
+        }
+      }
+    } else {
+      // 직선
+      const len = Math.sqrt((a.toX - a.fromX) ** 2 + (a.toY - a.fromY) ** 2);
+      if (len > 15) {
+        state.arrows.push({
+          id: state.nextId++,
+          type: "straight",
+          fromX: a.fromX,
+          fromY: a.fromY,
+          toX: a.toX,
+          toY: a.toY,
+          color: a.color,
+          fromPlayerId: a.fromPlayerId
+        });
+      }
+    }
+    state.drawingArrow = null;
+    draw();
+  }
+  state.draggingId = null;
+  canvas.classList.remove("dragging");
+}
+
+canvas.addEventListener("mousedown", onPointerDown);
+canvas.addEventListener("mousemove", onPointerMove);
+canvas.addEventListener("mouseup", onPointerUp);
+canvas.addEventListener("mouseleave", onPointerUp);
+canvas.addEventListener("touchstart", onPointerDown, { passive: false });
+canvas.addEventListener("touchmove", onPointerMove, { passive: false });
+canvas.addEventListener("touchend", onPointerUp);
+canvas.addEventListener("touchcancel", onPointerUp);
+
+// 모바일 더블탭 감지 (300ms 안에 두 번 탭하면 더블클릭처럼 동작)
+let lastTapTime = 0;
+let lastTapPos = { x: 0, y: 0 };
+canvas.addEventListener("touchend", function(e) {
+  if (state.drawMode || state.pairMode || state.deleteMode || state.drawingArrow || state.draggingId !== null) return;
+  const pos = getCanvasPos(e);
+  const now = Date.now();
+  const dt = now - lastTapTime;
+  const dist = Math.sqrt((pos.x - lastTapPos.x) ** 2 + (pos.y - lastTapPos.y) ** 2);
+  if (dt < 300 && dist < 30) {
+    // 더블 탭으로 인식
+    const obj = findObjectAt(pos.x, pos.y);
+    if (obj && obj.type === "player") {
+      const newNum = prompt(t("prompt_jersey"), obj.number);
+      if (newNum !== null && newNum.trim()) {
+        obj.number = newNum.trim();
+        draw();
+        renderPairList();
+      }
+    }
+    lastTapTime = 0; // reset
+  } else {
+    lastTapTime = now;
+    lastTapPos = pos;
+  }
+});
+
+// 모바일 롱프레스 감지 (600ms 누르고 있으면 우클릭처럼 동작 - 삭제 메뉴)
+let longPressTimer = null;
+let longPressStartPos = null;
+canvas.addEventListener("touchstart", function(e) {
+  if (state.drawMode || state.pairMode || state.deleteMode) return; // 다른 모드에서는 롱프레스 동작 안함
+  const pos = getCanvasPos(e);
+  longPressStartPos = pos;
+  longPressTimer = setTimeout(function() {
+    // 600ms 동안 위치 변화가 없었다면 롱프레스로 인정
+    if (longPressStartPos && state.draggingId === null) {
+      // 진동 피드백 (지원 시)
+      if (navigator.vibrate) navigator.vibrate(50);
+      handleDelete(longPressStartPos);
+      // 드래그 중지
+      state.draggingId = null;
+      canvas.classList.remove("dragging");
+    }
+  }, 600);
+}, { passive: true });
+canvas.addEventListener("touchmove", function(e) {
+  if (longPressTimer && longPressStartPos) {
+    const pos = getCanvasPos(e);
+    const dist = Math.sqrt((pos.x - longPressStartPos.x) ** 2 + (pos.y - longPressStartPos.y) ** 2);
+    if (dist > 15) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  }
+}, { passive: true });
+canvas.addEventListener("touchend", function() {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  longPressStartPos = null;
+});
+
+// 객체 또는 화살표 삭제 처리 (우클릭/롱프레스 공통 로직)
+function handleDelete(pos) {
+  // 1. 객체 먼저 (선수/공)
+  const obj = findObjectAt(pos.x, pos.y);
+  if (obj) {
+    const msg = (obj.type === "player")
+      ? t("confirm_delete_player").replace("{n}", obj.number)
+      : t("confirm_delete_ball");
+    if (confirm(msg)) {
+      state.objects = state.objects.filter(o => o.id !== obj.id);
+      state.keyframes.forEach(kf => delete kf.positions[obj.id]);
+      state.arrows = state.arrows.filter(a => a.fromPlayerId !== obj.id);
+      state.keyframes.forEach(function(kf) {
+        if (kf.arrows) kf.arrows = kf.arrows.filter(a => a.fromPlayerId !== obj.id);
+      });
+      // 페어에서도 이 선수 제거
+      state.pairs = state.pairs.filter(function(p) {
+        return p.attackerId !== obj.id && p.defenderId !== obj.id;
+      });
+      state.keyframes.forEach(function(kf) {
+        if (kf.pairs) kf.pairs = kf.pairs.filter(function(p) {
+          return p.attackerId !== obj.id && p.defenderId !== obj.id;
+        });
+      });
+      draw();
+      updatePairStatus();
+    }
+    return;
+  }
+  // 2. 페어 라인
+  const pair = findPairAt(pos.x, pos.y);
+  if (pair) {
+    if (confirm(t("confirm_remove_pair"))) {
+      state.pairs = state.pairs.filter(p => p.id !== pair.id);
+      state.keyframes.forEach(function(kf) {
+        if (kf.pairs) kf.pairs = kf.pairs.filter(p => p.id !== pair.id);
+      });
+      draw();
+      updatePairStatus();
+      toast(t("toast_pair_removed"));
+    }
+    return;
+  }
+  // 3. 화살표
+  const arrow = findArrowAt(pos.x, pos.y);
+  if (arrow) {
+    if (confirm(t("confirm_delete_arrow"))) {
+      state.arrows = state.arrows.filter(a => a.id !== arrow.id);
+      state.keyframes.forEach(function(kf) {
+        if (kf.arrows) kf.arrows = kf.arrows.filter(a => a.id !== arrow.id);
+      });
+      draw();
+      toast(t("toast_arrow_deleted"));
+    }
+  }
+}
+
+canvas.addEventListener("dblclick", function(e) {
+  const pos = getCanvasPos(e);
+  const obj = findObjectAt(pos.x, pos.y);
+  if (obj && obj.type === "player") {
+    const newNum = prompt(t("prompt_jersey"), obj.number);
+    if (newNum !== null && newNum.trim()) {
+      obj.number = newNum.trim();
+      draw();
+      renderPairList();
+    }
+  }
+});
+
+canvas.addEventListener("contextmenu", function(e) {
+  e.preventDefault();
+  const pos = getCanvasPos(e);
+  handleDelete(pos);
+});
+
+// ==========================================
+// 키프레임
+// ==========================================
+function snapshotPositions() {
+  const positions = {};
+  state.objects.forEach(o => { positions[o.id] = { x: o.x, y: o.y }; });
+  return positions;
+}
+
+// 화살표를 깊은 복사 (직선/자유곡선 모두 지원)
+function snapshotArrows() {
+  return state.arrows.map(function(a) {
+    if (a.type === "freehand") {
+      return {
+        id: a.id, type: "freehand", color: a.color,
+        points: a.points.map(function(p) { return { x: p.x, y: p.y }; })
+      };
+    } else {
+      return {
+        id: a.id, type: a.type || "straight",
+        fromX: a.fromX, fromY: a.fromY,
+        toX: a.toX, toY: a.toY,
+        color: a.color, fromPlayerId: a.fromPlayerId
+      };
+    }
+  });
+}
+
+// 페어 깊은 복사
+function snapshotPairs() {
+  return state.pairs.map(function(p) {
+    return {
+      id: p.id,
+      attackerId: p.attackerId,
+      defenderId: p.defenderId,
+      distance: p.distance
+    };
+  });
+}
+
+function addKeyframe() {
+  if (state.objects.length === 0) {
+    toast(t("toast_no_players"));
+    return;
+  }
+  state.keyframes.push({
+    positions: snapshotPositions(),
+    arrows: snapshotArrows(),
+    pairs: snapshotPairs(),
+    label: "Scene " + (state.keyframes.length + 1)
+  });
+  state.currentFrame = state.keyframes.length - 1;
+  renderFrames();
+  toast(t("toast_frame_saved").replace("{n}", state.keyframes.length));
+}
+
+function updateKeyframe() {
+  if (state.currentFrame < 0) { toast(t("toast_no_frame_to_update")); return; }
+  state.keyframes[state.currentFrame].positions = snapshotPositions();
+  state.keyframes[state.currentFrame].arrows = snapshotArrows();
+  state.keyframes[state.currentFrame].pairs = snapshotPairs();
+  toast(t("toast_frame_updated"));
+}
+
+function deleteKeyframe() {
+  if (state.currentFrame < 0) return;
+  state.keyframes.splice(state.currentFrame, 1);
+  state.currentFrame = Math.min(state.currentFrame, state.keyframes.length - 1);
+  if (state.currentFrame >= 0) loadKeyframe(state.currentFrame);
+  else { draw(); }
+  renderFrames();
+}
+
+function loadKeyframe(idx) {
+  if (idx < 0 || idx >= state.keyframes.length) return;
+  state.currentFrame = idx;
+  const kf = state.keyframes[idx];
+  state.objects.forEach(o => {
+    const p = kf.positions[o.id];
+    if (p) { o.x = p.x; o.y = p.y; }
+  });
+  // 화살표 복원
+  state.arrows = kf.arrows ? kf.arrows.map(function(a) {
+    if (a.type === "freehand") {
+      return {
+        id: a.id, type: "freehand", color: a.color,
+        points: a.points.map(function(p) { return { x: p.x, y: p.y }; })
+      };
+    } else {
+      return Object.assign({}, a);
+    }
+  }) : [];
+  // 페어 복원
+  state.pairs = kf.pairs ? kf.pairs.map(function(p) { return Object.assign({}, p); }) : [];
+  draw();
+  renderFrames();
+  updatePairStatus();
+}
+
+function renderFrames() {
+  const row = document.getElementById("framesRow");
+  if (state.keyframes.length === 0) {
+    row.innerHTML = '<div style="color:var(--muted); font-size:12px; padding:8px">' + t("timeline_empty") + '</div>';
+    return;
+  }
+  const sceneLabel = (currentLang === "ko") ? "장면" : "Scene";
+  row.innerHTML = state.keyframes.map(function(kf, i) {
+    return '<div class="frame-chip ' + (i === state.currentFrame ? 'active' : '') + '" onclick="loadKeyframe(' + i + ')">' +
+           '<span class="num">' + (i + 1) + '</span>' + sceneLabel + ' ' + (i + 1) + '</div>';
+  }).join("");
+}
+
+// ==========================================
+// 애니메이션
+// ==========================================
+let animTimer = null;
+
+function easeInOut(t) {
+  return t < 0.5 ? 2*t*t : 1 - Math.pow(-2*t + 2, 2) / 2;
+}
+
+function playAnimation() {
+  if (state.keyframes.length < 2) {
+    toast(t("toast_need_2_frames"));
+    return;
+  }
+  stopAnimation();
+  state.playing = true;
+  const startTime = performance.now();
+  const segDur = state.duration * 1000;
+  const totalDur = (state.keyframes.length - 1) * segDur;
+
+  function animate(now) {
+    const elapsed = now - startTime;
+    if (elapsed >= totalDur) {
+      // 마지막 장면으로 고정
+      const last = state.keyframes[state.keyframes.length - 1];
+      state.objects.forEach(o => {
+        const p = last.positions[o.id];
+        if (p) { o.x = p.x; o.y = p.y; }
+      });
+      state.arrows = last.arrows ? last.arrows.map(function(a) {
+        return Object.assign({}, a);
+      }) : [];
+      // 페어도 마지막 키프레임의 페어로 복원
+      state.pairs = last.pairs ? last.pairs.map(function(p) { return Object.assign({}, p); }) : [];
+      state.playing = false;
+      draw();
+      updateProgress(0);
+      return;
+    }
+    const tNorm = elapsed / segDur;
+    const idx = Math.floor(tNorm);
+    const frac = easeInOut(tNorm - idx);
+    const from = state.keyframes[idx];
+    const to = state.keyframes[idx + 1];
+    // 객체 위치 보간
+    state.objects.forEach(o => {
+      const a = from.positions[o.id];
+      const b = to.positions[o.id];
+      if (a && b) {
+        o.x = a.x + (b.x - a.x) * frac;
+        o.y = a.y + (b.y - a.y) * frac;
+      } else if (a) {
+        o.x = a.x; o.y = a.y;
+      }
+    });
+    // 화살표 보간 (id 기준 매칭)
+    const fromArrows = from.arrows || [];
+    const toArrows = to.arrows || [];
+    const interpolated = [];
+    fromArrows.forEach(function(fa) {
+      const ta = toArrows.find(function(x) { return x.id === fa.id; });
+      if (ta) {
+        // 양쪽에 있는 화살표 - 보간
+        interpolated.push({
+          id: fa.id,
+          fromX: fa.fromX + (ta.fromX - fa.fromX) * frac,
+          fromY: fa.fromY + (ta.fromY - fa.fromY) * frac,
+          toX: fa.toX + (ta.toX - fa.toX) * frac,
+          toY: fa.toY + (ta.toY - fa.toY) * frac,
+          color: fa.color,
+          fromPlayerId: fa.fromPlayerId
+        });
+      } else {
+        // from에만 있음 - 페이드 아웃 효과는 단순화하기 위해 그대로 유지 (frac < 0.5만)
+        if (frac < 0.5) interpolated.push(Object.assign({}, fa));
+      }
+    });
+    // to에만 있는 화살표 (새로 그려지는 것)
+    toArrows.forEach(function(ta) {
+      const fa = fromArrows.find(function(x) { return x.id === ta.id; });
+      if (!fa && frac >= 0.5) interpolated.push(Object.assign({}, ta));
+    });
+    state.arrows = interpolated;
+
+    // 페어는 보간 없이 to 키프레임의 페어로 갱신 (시각적 페어 라인이 따라가도록)
+    state.pairs = to.pairs ? to.pairs.map(function(p) { return Object.assign({}, p); }) : [];
+
+    draw();
+    updateProgress(elapsed / totalDur);
+    animTimer = requestAnimationFrame(animate);
+  }
+  animTimer = requestAnimationFrame(animate);
+}
+
+function stopAnimation() {
+  if (animTimer) cancelAnimationFrame(animTimer);
+  state.playing = false;
+  updateProgress(0);
+}
+
+function updateProgress(p) {
+  document.getElementById("progress").style.transform = "scaleX(" + p + ")";
+}
+
+function updateDur() {
+  state.duration = parseFloat(document.getElementById("duration").value);
+  document.getElementById("durLabel").textContent = state.duration.toFixed(1) + "초";
+}
+
+// ==========================================
+// GIF 저장
+// ==========================================
+function exportGIF() {
+  if (state.keyframes.length < 2) {
+    toast(t("toast_need_2_frames_gif"));
+    return;
+  }
+  if (typeof GIF === "undefined") {
+    toast(t("toast_gif_lib_fail"));
+    return;
+  }
+  toast(t("toast_gif_creating"));
+
+  const fps = 20;
+  const segDur = state.duration;
+  const totalSec = (state.keyframes.length - 1) * segDur;
+  const totalFrames = Math.ceil(totalSec * fps);
+
+  const workerScript = "importScripts('https://cdn.jsdelivr.net/gh/jnordberg/gif.js@0.2.0/dist/gif.worker.js');";
+  const workerBlob = new Blob([workerScript], { type: "application/javascript" });
+  const workerUrl = URL.createObjectURL(workerBlob);
+
+  const gif = new GIF({
+    workers: 2,
+    quality: 10,
+    width: COURT.CANVAS_W,
+    height: COURT.CANVAS_H,
+    workerScript: workerUrl
+  });
+
+  stopAnimation();
+  const savedPositions = snapshotPositions();
+  const savedArrows = snapshotArrows();
+
+  for (let f = 0; f < totalFrames; f++) {
+    const elapsed = (f / fps);
+    const tNorm = elapsed / segDur;
+    const idx = Math.min(Math.floor(tNorm), state.keyframes.length - 2);
+    const frac = easeInOut(Math.min(tNorm - idx, 1));
+    const from = state.keyframes[idx];
+    const to = state.keyframes[idx + 1];
+
+    // 객체 보간
+    state.objects.forEach(o => {
+      const a = from.positions[o.id];
+      const b = to.positions[o.id];
+      if (a && b) {
+        o.x = a.x + (b.x - a.x) * frac;
+        o.y = a.y + (b.y - a.y) * frac;
+      }
+    });
+
+    // 화살표 보간
+    const fromArrows = from.arrows || [];
+    const toArrows = to.arrows || [];
+    const interpolated = [];
+    fromArrows.forEach(function(fa) {
+      const ta = toArrows.find(function(x) { return x.id === fa.id; });
+      if (ta) {
+        interpolated.push({
+          id: fa.id,
+          fromX: fa.fromX + (ta.fromX - fa.fromX) * frac,
+          fromY: fa.fromY + (ta.fromY - fa.fromY) * frac,
+          toX: fa.toX + (ta.toX - fa.toX) * frac,
+          toY: fa.toY + (ta.toY - fa.toY) * frac,
+          color: fa.color,
+          fromPlayerId: fa.fromPlayerId
+        });
+      } else {
+        if (frac < 0.5) interpolated.push(Object.assign({}, fa));
+      }
+    });
+    toArrows.forEach(function(ta) {
+      const fa = fromArrows.find(function(x) { return x.id === ta.id; });
+      if (!fa && frac >= 0.5) interpolated.push(Object.assign({}, ta));
+    });
+    state.arrows = interpolated;
+
+    draw();
+    gif.addFrame(canvas, { copy: true, delay: 1000/fps });
+    updateProgress(f / totalFrames * 0.5);
+  }
+
+  // 위치 복원
+  state.objects.forEach(o => {
+    const p = savedPositions[o.id];
+    if (p) { o.x = p.x; o.y = p.y; }
+  });
+  state.arrows = savedArrows;
+  draw();
+
+  gif.on("progress", function(p) { updateProgress(0.5 + p * 0.5); });
+  gif.on("finished", function(blob) {
+    updateProgress(0);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "korfball_tactics_" + Date.now() + ".gif";
+    a.click();
+    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(workerUrl);
+    toast(t("toast_gif_done"));
+  });
+  gif.render();
+}
+
+function exportWebM() {
+  if (state.keyframes.length < 2) {
+    toast(t("toast_need_2_frames_video"));
+    return;
+  }
+  if (!canvas.captureStream) {
+    toast(t("toast_video_unsupported"));
+    return;
+  }
+  toast(t("toast_video_recording"));
+
+  const stream = canvas.captureStream(30);
+  const recorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp9" });
+  const chunks = [];
+  recorder.ondataavailable = function(e) { if (e.data.size > 0) chunks.push(e.data); };
+  recorder.onstop = function() {
+    const blob = new Blob(chunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "korfball_tactics_" + Date.now() + ".webm";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast(t("toast_video_done"));
+  };
+
+  recorder.start();
+  playAnimation();
+  const totalMs = (state.keyframes.length - 1) * state.duration * 1000 + 200;
+  setTimeout(function() { recorder.stop(); }, totalMs);
+}
+
+function saveProject() {
+  const data = {
+    version: 6,
+    type: "korfball-half-court",
+    objects: state.objects,
+    arrows: state.arrows,
+    pairs: state.pairs,
+    keyframes: state.keyframes,
+    duration: state.duration,
+    nextId: state.nextId,
+    lang: currentLang
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "korfball_project_" + Date.now() + ".json";
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(t("toast_project_saved"));
+}
+
+function loadProjectClick() {
+  document.getElementById("loadFile").click();
+}
+
+function loadProject(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const data = JSON.parse(ev.target.result);
+      state.objects = data.objects || [];
+      state.arrows = data.arrows || [];
+      state.pairs = data.pairs || [];
+      state.keyframes = data.keyframes || [];
+      state.duration = data.duration || 1.5;
+      state.nextId = data.nextId || (Math.max(0, ...state.objects.map(o => o.id)) + 1);
+      state.currentFrame = state.keyframes.length > 0 ? 0 : -1;
+      if (data.lang && I18N[data.lang]) {
+        currentLang = data.lang;
+        applyLang();
+      }
+      document.getElementById("duration").value = state.duration;
+      updateDur();
+      if (state.currentFrame >= 0) loadKeyframe(0);
+      else draw();
+      renderFrames();
+      updatePairStatus();
+      toast(t("toast_project_loaded"));
+    } catch (err) {
+      toast(t("toast_load_fail"));
+      console.error(err);
+    }
+  };
+  reader.readAsText(file);
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function() { el.classList.remove("show"); }, 1800);
+}
+
+// ==========================================
+// 초기화
+// ==========================================
+function init() {
+  // 4명씩 기본 배치
+  for (let i = 0; i < 4; i++) addPlayer("A");
+  for (let i = 0; i < 4; i++) addPlayer("B");
+  state.objects.push(makeObject("ball", null,
+    COURT.postX + COURT.boxW * 0.40,
+    COURT.postY - COURT.boxH * 0.05));
+  draw();
+  // 언어 적용 (UI를 현재 언어로 동기화)
+  applyLang();
+  // 녹화 UI 초기화
+  updateRecordingUI();
+  // 페어 상태 UI 초기화
+  updatePairStatus();
+  debugLog("초기화 완료, 선수 " + state.objects.length + "명");
+}
+
+// 화면 회전 / 리사이즈 시 다시 그리기
+window.addEventListener("resize", function() {
+  setTimeout(draw, 100);
+});
+window.addEventListener("orientationchange", function() {
+  setTimeout(draw, 300);
+});
+
+// 페이지가 표시될 때 (iOS Safari 등에서 캐시에서 복원되는 경우 대응)
+window.addEventListener("pageshow", function() {
+  draw();
+});
+
+// 이미지 로드 여부와 무관하게 즉시 초기화
+init();
+
+// 다시 그리기 보정 (모바일에서 첫 렌더링이 무시되는 경우 대비)
+setTimeout(draw, 100);
+setTimeout(draw, 500);
+
+debugLog("Canvas 내부: " + canvas.width + "x" + canvas.height);
+debugLog("UA: " + navigator.userAgent.substring(0, 60));
+</script>
+</body>
+</html>
