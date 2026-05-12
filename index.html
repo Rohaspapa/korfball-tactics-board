@@ -396,9 +396,10 @@
     <div class="section">
       <div class="section-title" data-i18n="sec_help">사용법</div>
       <div class="info">
+        • <span data-i18n="help_shapes" data-i18n-html><b>모양</b>: 공격팀=주황, 수비팀=청록 / 남자=원·삼각형, 여자=사각형·마름모</span><br>
         • <span data-i18n="help_drag" data-i18n-html>선수/공을 <kbd>드래그</kbd>해서 이동</span><br>
         • <span data-i18n="help_dblclick" data-i18n-html><kbd>더블클릭</kbd>(PC) / <kbd>더블탭</kbd>(모바일): 등번호 변경</span><br>
-        • <span data-i18n="help_rightclick" data-i18n-html><kbd>우클릭</kbd>(PC) / <kbd>길게누르기</kbd>(모바일): 삭제</span><br>
+        • <span data-i18n="help_rightclick" data-i18n-html><kbd>🗑 선택 삭제</kbd> 버튼 → 선수 위 빨간 X 탭으로 삭제</span><br>
         • <span data-i18n="help_arrow" data-i18n-html>그리기 모드: 직선 또는 자유 곡선으로 화살표/궤적 그리기</span><br>
         • <span data-i18n="help_keyframe" data-i18n-html>🔴 녹화 시작 → 자유롭게 움직이기 → ■ 녹화 종료</span><br>
         &nbsp;&nbsp;<span data-i18n="help_keyframe2">→ GIF/동영상으로 저장</span><br>
@@ -479,6 +480,7 @@ const I18N = {
     btn_save_project: "📁 프로젝트 저장",
     btn_load_project: "📂 불러오기",
     sec_help: "사용법",
+    help_shapes: "<b>모양</b>: 공격팀=주황, 수비팀=청록 / 남자=원·삼각형, 여자=사각형·마름모",
     help_drag: "선수/공을 <kbd>드래그</kbd>해서 이동",
     help_dblclick: "<kbd>더블클릭</kbd>(PC) / <kbd>더블탭</kbd>(모바일): 등번호 변경",
     help_rightclick: "<kbd>🗑 선택 삭제</kbd> 버튼 → 선수 위 빨간 X 탭으로 삭제",
@@ -505,7 +507,7 @@ const I18N = {
     toast_gif_lib_fail: "GIF 라이브러리 로드 실패 - 인터넷 연결을 확인하세요",
     toast_gif_creating: "GIF 생성 중... 잠시 기다려주세요",
     toast_gif_done: "GIF 저장 완료!",
-    toast_video_unsupported: "이 브라우저는 동영상 저장을 지원하지 않습니다",
+    toast_video_unsupported: "이 브라우저는 동영상 저장을 지원하지 않습니다. GIF로 저장해보세요",
     toast_video_recording: "동영상 녹화 중...",
     toast_video_done: "동영상 저장 완료!",
     toast_project_saved: "프로젝트 저장 완료",
@@ -592,6 +594,7 @@ const I18N = {
     btn_save_project: "📁 Save Project",
     btn_load_project: "📂 Load",
     sec_help: "How to Use",
+    help_shapes: "<b>Shapes</b>: Attack=orange, Defense=teal / Male=circle·triangle, Female=square·diamond",
     help_drag: "<kbd>Drag</kbd> players/ball to move",
     help_dblclick: "<kbd>Double-click</kbd>(PC) / <kbd>Double-tap</kbd>(mobile): change jersey",
     help_rightclick: "<kbd>🗑 Select Delete</kbd> button → tap red X to remove a player",
@@ -618,7 +621,7 @@ const I18N = {
     toast_gif_lib_fail: "GIF library failed to load - check internet",
     toast_gif_creating: "Creating GIF... please wait",
     toast_gif_done: "GIF saved!",
-    toast_video_unsupported: "Browser does not support video export",
+    toast_video_unsupported: "Browser does not support video export. Try saving as GIF instead",
     toast_video_recording: "Recording video...",
     toast_video_done: "Video saved!",
     toast_project_saved: "Project saved",
@@ -819,12 +822,18 @@ const state = {
 // ==========================================
 // 객체 생성
 // ==========================================
-function makeObject(type, team, x, y) {
+function makeObject(type, team, x, y, gender) {
   const teamCount = state.objects.filter(o => o.type === "player" && o.team === team).length;
+  // 성별 자동 배정: 명시 안 하면 팀 내 순서로 M, F, M, F 순환
+  let g = null;
+  if (type === "player") {
+    g = gender || ((teamCount % 2 === 0) ? "M" : "F");
+  }
   return {
     id: state.nextId++,
     type: type,
     team: team,
+    gender: g,
     number: type === "player" ? teamCount + 1 : null,
     x: x,
     y: y
@@ -861,6 +870,9 @@ function addPlayer(team) {
   }
   const overflow = Math.floor(count / 4);
   if (overflow > 0) { x += overflow * 20; y += overflow * 15; }
+  // 캔버스 경계 안에 머무르도록 클램프 (선수 반지름 20 고려)
+  x = Math.max(25, Math.min(COURT.CANVAS_W - 25, x));
+  y = Math.max(25, Math.min(COURT.CANVAS_H - 25, y));
   state.objects.push(makeObject("player", team, x, y));
   draw();
   toast(team === "A" ? t("toast_added_attack") : t("toast_added_defense"));
@@ -880,6 +892,7 @@ function addBall() {
 
 // 4-0 (four-zero) 기본 배치 - 공통 함수
 // 공격수 4명이 골대를 사방에서 둘러싸고, 수비수가 각각 1:1 마크
+// 성별: 남2여2 자동 배정 (A: 남여남여 / B: 남여남여 - 대각선 동일 성별로 균형)
 function setup4v0Position() {
   state.objects = [];
   state.arrows = [];
@@ -891,24 +904,25 @@ function setup4v0Position() {
 
   const px = COURT.postX;
   const py = COURT.postY;
-  const dA = 120;  // 골대-공격수 거리
-  const dB = 50;   // 골대-수비수 거리
+  const dA = 150;  // 골대-공격수 거리 (이전 120 → 바깥쪽으로 30 확장)
+  const dB = 95;   // 골대-수비수 거리 (이전 50 → 공격수 쪽으로 45 이동하여 페어 거리 좁힘)
 
   // 공격수 4명 (A1: 아래, A2: 오른쪽, A3: 위, A4: 왼쪽)
+  // 성별 배치: A1=남, A2=여, A3=남, A4=여 (대각선 같은 성별로 균형)
   const aPos = [
-    { x: px,      y: py + dA + 10 },  // A1 아래 (슛 위치)
-    { x: px + dA, y: py },             // A2 오른쪽
-    { x: px,      y: py - dA - 10 },  // A3 위
-    { x: px - dA, y: py }              // A4 왼쪽
+    { x: px,      y: py + dA + 10, g: "M" },  // A1 아래 (슛 위치) - 남
+    { x: px + dA, y: py,            g: "F" }, // A2 오른쪽 - 여
+    { x: px,      y: py - dA - 10, g: "M" },  // A3 위 - 남
+    { x: px - dA, y: py,            g: "F" }  // A4 왼쪽 - 여
   ];
   const attackerIds = [];
   aPos.forEach(function(pos) {
-    const obj = makeObject("player", "A", pos.x, pos.y);
+    const obj = makeObject("player", "A", pos.x, pos.y, pos.g);
     state.objects.push(obj);
     attackerIds.push(obj.id);
   });
 
-  // 수비수 4명: 각 공격수와 골대 사이
+  // 수비수 4명: 각 공격수와 골대 사이 (페어 짝의 성별과 동일하게)
   const defenderIds = [];
   aPos.forEach(function(pos) {
     const dx = pos.x - px;
@@ -916,7 +930,8 @@ function setup4v0Position() {
     const dist = Math.sqrt(dx*dx + dy*dy);
     const bx = px + (dx / dist) * dB;
     const by = py + (dy / dist) * dB;
-    const obj = makeObject("player", "B", bx, by);
+    // 수비수 성별은 페어 공격수와 동일하게 (실제 코프볼 규칙 반영)
+    const obj = makeObject("player", "B", bx, by, pos.g);
     state.objects.push(obj);
     defenderIds.push(obj.id);
   });
@@ -925,19 +940,24 @@ function setup4v0Position() {
   state.objects.push(makeObject("ball", null, aPos[0].x + 20, aPos[0].y + 3));
 
   // 페어 자동 생성: A1-B1, A2-B2, A3-B3, A4-B4
+  // 새 간격에서 페어 거리는 dA + 10 - dB ≈ 65px
   for (let i = 0; i < 4; i++) {
     state.pairs.push({
       id: state.nextId++,
       attackerId: attackerIds[i],
       defenderId: defenderIds[i],
-      distance: 70
+      distance: 65
     });
   }
 }
 
 function loadPreset() {
   if (!confirm(t("toast_confirm_preset"))) return;
+  // 녹화 중이면 먼저 중지
+  if (state.recording) stopRecording();
   setup4v0Position();
+  state.recordedFrames = [];
+  updateRecordingUI();
   draw();
   renderFrames();
   updatePairStatus();
@@ -946,13 +966,17 @@ function loadPreset() {
 
 function clearAll() {
   if (!confirm(t("toast_confirm_clear"))) return;
+  // 녹화 중이면 먼저 중지
+  if (state.recording) stopRecording();
   state.objects = [];
   state.arrows = [];
   state.pairs = [];
   state.pairFirstSelected = null;
   state.keyframes = [];
   state.currentFrame = -1;
+  state.recordedFrames = [];
   state.nextId = 1;
+  updateRecordingUI();
   draw();
   renderFrames();
   updatePairStatus();
@@ -980,41 +1004,63 @@ function drawCourt() {
 function drawPlayer(p) {
   const r = 18;
   const isA = p.team === "A";
+  const isMale = p.gender !== "F"; // 기본값(혹은 M)은 남자
   const color = isA ? "#ff6b35" : "#4ecdc4";
   const textColor = isA ? "#fff" : "#0f1419";
 
-  // 그림자
+  // 그림자 (모양과 무관하게 원형)
   ctx.beginPath();
   ctx.arc(p.x + 2, p.y + 3, r, 0, Math.PI * 2);
   ctx.fillStyle = "rgba(0,0,0,0.2)";
   ctx.fill();
 
-  if (isA) {
+  ctx.fillStyle = color;
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 2.5;
+
+  if (isA && isMale) {
+    // 공격수 남자: 원
     ctx.beginPath();
     ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = color;
     ctx.fill();
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 2.5;
     ctx.stroke();
-  } else {
+  } else if (isA && !isMale) {
+    // 공격수 여자: 사각형
+    const s = r * 1.7; // 사각형 한 변
+    ctx.beginPath();
+    ctx.rect(p.x - s/2, p.y - s/2, s, s);
+    ctx.fill();
+    ctx.stroke();
+  } else if (!isA && isMale) {
+    // 수비수 남자: 삼각형 (기존 디자인 유지)
     ctx.beginPath();
     ctx.moveTo(p.x, p.y - r);
     ctx.lineTo(p.x + r, p.y + r * 0.7);
     ctx.lineTo(p.x - r, p.y + r * 0.7);
     ctx.closePath();
-    ctx.fillStyle = color;
     ctx.fill();
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  } else {
+    // 수비수 여자: 마름모 (사각형 45° 회전)
+    const d = r * 1.15;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y - d);
+    ctx.lineTo(p.x + d, p.y);
+    ctx.lineTo(p.x, p.y + d);
+    ctx.lineTo(p.x - d, p.y);
+    ctx.closePath();
+    ctx.fill();
     ctx.stroke();
   }
 
+  // 번호 그리기 (모양마다 텍스트 Y 위치 미세 조정)
   ctx.fillStyle = textColor;
   ctx.font = "bold 14px sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(p.number, p.x, p.y + (isA ? 0 : 4));
+  let textY = p.y;
+  if (!isA && isMale) textY = p.y + 4; // 수비수 남자 삼각형 - 무게중심 보정
+  ctx.fillText(p.number, p.x, textY);
 }
 
 function drawBall(b) {
@@ -1352,6 +1398,32 @@ function saveRecordedGIF() {
   gif.render();
 }
 
+// 브라우저에서 지원하는 최적의 비디오 포맷 선택
+// 우선순위: MP4(H.264, 모바일·카톡 호환) → WebM
+function pickBestVideoFormat() {
+  if (typeof MediaRecorder === "undefined") return null;
+  // 모바일/카톡 호환성이 좋은 순서로 시도
+  const candidates = [
+    // MP4 + H.264 (아이폰 사파리, 카톡, 사진앱 모두 OK - iOS 14.5+)
+    { mime: "video/mp4;codecs=avc1.42E01E", ext: "mp4" },
+    { mime: "video/mp4;codecs=avc1",        ext: "mp4" },
+    { mime: "video/mp4;codecs=h264",        ext: "mp4" },
+    { mime: "video/mp4",                    ext: "mp4" },
+    // WebM (안드로이드 크롬, PC 크롬/파이어폭스에서만 재생)
+    { mime: "video/webm;codecs=vp9",        ext: "webm" },
+    { mime: "video/webm;codecs=vp8",        ext: "webm" },
+    { mime: "video/webm",                   ext: "webm" }
+  ];
+  for (let i = 0; i < candidates.length; i++) {
+    try {
+      if (MediaRecorder.isTypeSupported(candidates[i].mime)) {
+        return candidates[i];
+      }
+    } catch (e) { /* 다음 후보 */ }
+  }
+  return null;
+}
+
 function saveRecordedVideo() {
   if (state.recordedFrames.length < 2) {
     toast(t("toast_no_recording"));
@@ -1361,21 +1433,36 @@ function saveRecordedVideo() {
     toast(t("toast_video_unsupported"));
     return;
   }
+  const fmt = pickBestVideoFormat();
+  if (!fmt) {
+    toast(t("toast_video_unsupported"));
+    return;
+  }
   toast(t("toast_video_recording"));
 
   const stream = canvas.captureStream(30);
-  const recorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp9" });
+  let recorder;
+  try {
+    recorder = new MediaRecorder(stream, { mimeType: fmt.mime });
+  } catch (e) {
+    // mimeType 지정 시도가 실패하면 기본값으로 한 번 더 시도
+    try { recorder = new MediaRecorder(stream); }
+    catch (e2) { toast(t("toast_video_unsupported")); return; }
+  }
   const chunks = [];
   recorder.ondataavailable = function(e) { if (e.data.size > 0) chunks.push(e.data); };
   recorder.onstop = function() {
-    const blob = new Blob(chunks, { type: "video/webm" });
+    // 실제 출력 MIME 타입과 확장자 (recorder.mimeType이 우선)
+    const outMime = (recorder.mimeType && recorder.mimeType.split(";")[0]) || ("video/" + fmt.ext);
+    const ext = outMime.indexOf("mp4") >= 0 ? "mp4" : "webm";
+    const blob = new Blob(chunks, { type: outMime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "korfball_recording_" + Date.now() + ".webm";
+    a.download = "korfball_recording_" + Date.now() + "." + ext;
     a.click();
     URL.revokeObjectURL(url);
-    toast(t("toast_video_done"));
+    toast(t("toast_video_done") + " (." + ext + ")");
   };
 
   const savedObjects = state.objects.map(function(o) { return { id: o.id, x: o.x, y: o.y }; });
@@ -1408,6 +1495,10 @@ function saveRecordedVideo() {
 // 그리기 모드 토글
 function toggleDrawMode() {
   state.drawMode = !state.drawMode;
+  // 모드 전환 시 진행 중인 드래그/드로잉 초기화
+  state.draggingId = null;
+  state.drawingArrow = null;
+  canvas.classList.remove("dragging");
   const btn = document.getElementById("drawModeBtn");
   if (state.drawMode) {
     btn.textContent = t("btn_draw_mode_on");
@@ -1417,6 +1508,8 @@ function toggleDrawMode() {
     if (state.pairMode) {
       state.pairMode = false;
       state.pairFirstSelected = null;
+      state._pairDownPos = null;
+      state._pairDownObj = null;
       const pairBtn = document.getElementById("pairModeBtn");
       if (pairBtn) {
         pairBtn.textContent = t("btn_pair_mode");
@@ -1483,12 +1576,27 @@ function clearAllArrows() {
 function togglePairMode() {
   state.pairMode = !state.pairMode;
   state.pairFirstSelected = null;
+  // 페어 모드 관련 임시 상태 초기화
+  state._pairDownPos = null;
+  state._pairDownObj = null;
+  state.pairPointerMoved = false;
+  // 모드 전환 시 진행 중인 드래그/드로잉 초기화
+  state.draggingId = null;
+  state.drawingArrow = null;
+  canvas.classList.remove("dragging");
   const btn = document.getElementById("pairModeBtn");
   if (state.pairMode) {
     btn.textContent = t("btn_pair_mode_on");
     btn.classList.add("primary");
     // 그리기 모드는 끄기 (서로 배타)
-    if (state.drawMode) toggleDrawMode();
+    if (state.drawMode) {
+      state.drawMode = false;
+      const dBtn = document.getElementById("drawModeBtn");
+      if (dBtn) {
+        dBtn.textContent = t("btn_draw_mode");
+        dBtn.classList.remove("primary");
+      }
+    }
     // 선택 삭제 모드도 끄기
     if (state.deleteMode) {
       state.deleteMode = false;
@@ -1498,10 +1606,12 @@ function togglePairMode() {
         dBtn.classList.remove("danger");
       }
     }
+    canvas.style.cursor = "pointer";
     toast(t("toast_pair_mode_on"));
   } else {
     btn.textContent = t("btn_pair_mode");
     btn.classList.remove("primary");
+    canvas.style.cursor = "grab";
     toast(t("toast_pair_mode_off"));
   }
   updatePairStatus();
@@ -1683,10 +1793,12 @@ function renderPairList() {
     if (!attacker || !defender) return "";
     const aNum = attacker.number;
     const dNum = defender.number;
+    const aGender = attacker.gender === "F" ? "♀" : "♂";
+    const dGender = defender.gender === "F" ? "♀" : "♂";
     return '<span class="pair-chip" onclick="removePair(' + p.id + ')" title="' + xLabel + '">'
-         + '<span style="color:#ff6b35; font-weight:600">A' + aNum + '</span>'
+         + '<span style="color:#ff6b35; font-weight:600">A' + aNum + aGender + '</span>'
          + '<span style="opacity:0.6">↔</span>'
-         + '<span style="color:#4ecdc4; font-weight:600">B' + dNum + '</span>'
+         + '<span style="color:#4ecdc4; font-weight:600">B' + dNum + dGender + '</span>'
          + '<span class="pair-x">×</span>'
          + '</span>';
   }).join("");
@@ -1720,6 +1832,10 @@ function removePair(pairId) {
 // ==========================================
 function toggleDeleteMode() {
   state.deleteMode = !state.deleteMode;
+  // 모드 전환 시 진행 중인 드래그/드로잉 초기화
+  state.draggingId = null;
+  state.drawingArrow = null;
+  canvas.classList.remove("dragging");
   const btn = document.getElementById("deleteModeBtn");
   if (state.deleteMode) {
     btn.textContent = t("btn_delete_mode_on");
@@ -1732,11 +1848,12 @@ function toggleDeleteMode() {
         dBtn.textContent = t("btn_draw_mode");
         dBtn.classList.remove("primary");
       }
-      canvas.style.cursor = "pointer";
     }
     if (state.pairMode) {
       state.pairMode = false;
       state.pairFirstSelected = null;
+      state._pairDownPos = null;
+      state._pairDownObj = null;
       const pBtn = document.getElementById("pairModeBtn");
       if (pBtn) {
         pBtn.textContent = t("btn_pair_mode");
@@ -1759,10 +1876,19 @@ function toggleDeleteMode() {
 function drawDeleteButtons() {
   ctx.save();
   state.objects.forEach(function(o) {
-    const r = o.type === "ball" ? 10 : 18;
-    // 오른쪽 위에 X 원 표시
-    const bx = o.x + r * 0.85;
-    const by = o.y - r * 0.85;
+    // 모양별 가장 적절한 X 위치 계산
+    let r = 18;
+    let offsetMult = 0.85;
+    if (o.type === "ball") {
+      r = 10;
+      offsetMult = 0.95;
+    } else if (o.gender === "F") {
+      // 사각형/마름모는 모서리가 멀리 있어 X도 더 바깥에
+      r = 20;
+      offsetMult = 1.0;
+    }
+    const bx = o.x + r * offsetMult;
+    const by = o.y - r * offsetMult;
     const br = 11;
     // 배경 원 (빨간색)
     ctx.beginPath();
@@ -1786,15 +1912,27 @@ function drawDeleteButtons() {
   ctx.restore();
 }
 
+// 객체별 X 버튼 위치 계산 (drawDeleteButtons와 findDeleteButtonAt이 일치하도록)
+function getDeleteButtonPos(o) {
+  let r = 18;
+  let offsetMult = 0.85;
+  if (o.type === "ball") {
+    r = 10;
+    offsetMult = 0.95;
+  } else if (o.gender === "F") {
+    r = 20;
+    offsetMult = 1.0;
+  }
+  return { x: o.x + r * offsetMult, y: o.y - r * offsetMult };
+}
+
 // X 버튼 클릭 감지
 function findDeleteButtonAt(x, y) {
   for (let i = state.objects.length - 1; i >= 0; i--) {
     const o = state.objects[i];
-    const r = o.type === "ball" ? 10 : 18;
-    const bx = o.x + r * 0.85;
-    const by = o.y - r * 0.85;
+    const btnPos = getDeleteButtonPos(o);
     const br = 13; // 클릭 영역은 살짝 더 크게
-    const dx = x - bx, dy = y - by;
+    const dx = x - btnPos.x, dy = y - btnPos.y;
     if (dx*dx + dy*dy <= br*br) return o;
   }
   return null;
@@ -1873,7 +2011,9 @@ function drawPairFirstSelected() {
   ctx.lineWidth = 3;
   ctx.setLineDash([5, 3]);
   ctx.beginPath();
-  ctx.arc(p.x, p.y, 28, 0, Math.PI * 2);
+  // 여자(사각형/마름모)는 모양이 살짝 더 크므로 강조 영역도 키움
+  const r = (p.gender === "F") ? 32 : 28;
+  ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
@@ -1950,7 +2090,13 @@ function getCanvasPos(e) {
 function findObjectAt(x, y) {
   for (let i = state.objects.length - 1; i >= 0; i--) {
     const o = state.objects[i];
-    const r = o.type === "ball" ? 12 : 20;
+    let r = 20;
+    if (o.type === "ball") {
+      r = 12;
+    } else if (o.gender === "F") {
+      // 여자(사각형/마름모)는 모양이 살짝 더 크므로 히트 영역도 키움
+      r = 22;
+    }
     const dx = x - o.x, dy = y - o.y;
     if (dx*dx + dy*dy <= r*r) return o;
   }
@@ -2056,8 +2202,10 @@ function onPointerMove(e) {
   e.preventDefault();
   const obj = state.objects.find(o => o.id === state.draggingId);
   if (obj) {
-    obj.x = Math.max(10, Math.min(COURT.CANVAS_W - 10, pos.x - state.dragOffset.x));
-    obj.y = Math.max(10, Math.min(COURT.CANVAS_H - 10, pos.y - state.dragOffset.y));
+    // 객체 종류별 반지름 고려해서 캔버스 안에 머무르게
+    const margin = obj.type === "ball" ? 14 : 22;
+    obj.x = Math.max(margin, Math.min(COURT.CANVAS_W - margin, pos.x - state.dragOffset.x));
+    obj.y = Math.max(margin, Math.min(COURT.CANVAS_H - margin, pos.y - state.dragOffset.y));
     // 공격수가 움직였으면 페어된 수비수도 자동으로 따라옴
     // (수비수가 직접 드래그되면 페어 규칙을 일시적으로 위반할 수 있게 그대로 둠)
     if (obj.type === "player" && obj.team === "A") {
@@ -2146,7 +2294,7 @@ canvas.addEventListener("touchend", function(e) {
     if (obj && obj.type === "player") {
       const newNum = prompt(t("prompt_jersey"), obj.number);
       if (newNum !== null && newNum.trim()) {
-        obj.number = newNum.trim();
+        obj.number = newNum.trim().slice(0, 3);
         draw();
         renderPairList();
       }
@@ -2251,11 +2399,13 @@ function handleDelete(pos) {
 
 canvas.addEventListener("dblclick", function(e) {
   const pos = getCanvasPos(e);
+  // 모드 중에는 더블클릭으로 등번호 변경 안 함
+  if (state.drawMode || state.pairMode || state.deleteMode) return;
   const obj = findObjectAt(pos.x, pos.y);
   if (obj && obj.type === "player") {
     const newNum = prompt(t("prompt_jersey"), obj.number);
     if (newNum !== null && newNum.trim()) {
-      obj.number = newNum.trim();
+      obj.number = newNum.trim().slice(0, 3);
       draw();
       renderPairList();
     }
@@ -2605,21 +2755,34 @@ function exportWebM() {
     toast(t("toast_video_unsupported"));
     return;
   }
+  const fmt = pickBestVideoFormat();
+  if (!fmt) {
+    toast(t("toast_video_unsupported"));
+    return;
+  }
   toast(t("toast_video_recording"));
 
   const stream = canvas.captureStream(30);
-  const recorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp9" });
+  let recorder;
+  try {
+    recorder = new MediaRecorder(stream, { mimeType: fmt.mime });
+  } catch (e) {
+    try { recorder = new MediaRecorder(stream); }
+    catch (e2) { toast(t("toast_video_unsupported")); return; }
+  }
   const chunks = [];
   recorder.ondataavailable = function(e) { if (e.data.size > 0) chunks.push(e.data); };
   recorder.onstop = function() {
-    const blob = new Blob(chunks, { type: "video/webm" });
+    const outMime = (recorder.mimeType && recorder.mimeType.split(";")[0]) || ("video/" + fmt.ext);
+    const ext = outMime.indexOf("mp4") >= 0 ? "mp4" : "webm";
+    const blob = new Blob(chunks, { type: outMime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "korfball_tactics_" + Date.now() + ".webm";
+    a.download = "korfball_tactics_" + Date.now() + "." + ext;
     a.click();
     URL.revokeObjectURL(url);
-    toast(t("toast_video_done"));
+    toast(t("toast_video_done") + " (." + ext + ")");
   };
 
   recorder.start();
@@ -2661,7 +2824,30 @@ function loadProject(e) {
   reader.onload = function(ev) {
     try {
       const data = JSON.parse(ev.target.result);
+      // 녹화 중이면 중지
+      if (state.recording) stopRecording();
+      // 모든 모드 초기화
+      if (state.drawMode) { state.drawMode = false; const b = document.getElementById("drawModeBtn"); if (b) { b.textContent = t("btn_draw_mode"); b.classList.remove("primary"); } }
+      if (state.pairMode) { state.pairMode = false; const b = document.getElementById("pairModeBtn"); if (b) { b.textContent = t("btn_pair_mode"); b.classList.remove("primary"); } }
+      if (state.deleteMode) { state.deleteMode = false; const b = document.getElementById("deleteModeBtn"); if (b) { b.textContent = t("btn_delete_mode"); b.classList.remove("danger"); } }
+      state.pairFirstSelected = null;
+      state.recordedFrames = [];
+      state.drawingArrow = null;
+      state.draggingId = null;
+      canvas.style.cursor = "grab";
+
       state.objects = data.objects || [];
+      // 호환성: 구버전 프로젝트에 gender가 없으면 팀 내 순서대로 M/F 자동 배정
+      const teamSeq = { A: 0, B: 0 };
+      state.objects.forEach(function(o) {
+        if (o.type === "player" && !o.gender) {
+          const idx = teamSeq[o.team] || 0;
+          o.gender = (idx % 2 === 0) ? "M" : "F";
+          teamSeq[o.team] = idx + 1;
+        } else if (o.type === "player") {
+          teamSeq[o.team] = (teamSeq[o.team] || 0) + 1;
+        }
+      });
       state.arrows = data.arrows || [];
       state.pairs = data.pairs || [];
       state.keyframes = data.keyframes || [];
@@ -2674,6 +2860,7 @@ function loadProject(e) {
       }
       document.getElementById("duration").value = state.duration;
       updateDur();
+      updateRecordingUI();
       if (state.currentFrame >= 0) loadKeyframe(0);
       else draw();
       renderFrames();
@@ -2683,6 +2870,8 @@ function loadProject(e) {
       toast(t("toast_load_fail"));
       console.error(err);
     }
+    // 같은 파일을 다시 선택할 수 있도록 input value 초기화
+    e.target.value = "";
   };
   reader.readAsText(file);
 }
