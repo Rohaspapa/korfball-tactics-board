@@ -107,6 +107,15 @@
     -webkit-touch-callout: none;
   }
   canvas#court.dragging { cursor: grabbing; }
+  /* 코트 아래 빠른 실행 바 (모바일에서 스크롤 없이 바로 사용) */
+  .quick-bar { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .quick-bar button { flex:1 1 0; min-width:0; padding:10px 4px; font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .quick-bar button.batch-go { background:#8e44ad; border-color:#8e44ad; color:#fff; }
+  .quick-bar button.rec-stop { background:#c0392b; border-color:#c0392b; color:#fff; }
+  .quick-bar button:disabled { opacity:0.45; }
+  .batch-hint { display:none; margin-top:6px; padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.5;
+    background:rgba(142,68,173,0.15); border:1px solid rgba(142,68,173,0.5); color:var(--text); }
+  .batch-hint.show { display:block; }
   .timeline {
     margin-top: 12px;
     padding: 12px;
@@ -342,6 +351,14 @@
       <div class="info" style="margin-top:8px" data-i18n="pair_help">① 🔗 버튼 클릭 → ② 공격수 탭 → ③ 수비수 탭 → 완료! 이후 공격수를 드래그하면 수비수가 자동으로 따라옵니다.</div>
     </div>
 
+    <div class="section">
+      <div class="section-title" data-i18n="sec_photo">장면 사진</div>
+      <div class="btn-row">
+        <button onclick="savePhoto()" class="accent2" data-i18n="btn_save_photo">📷 사진으로 저장 (PNG)</button>
+      </div>
+      <div class="info" style="margin-top:8px" data-i18n="photo_help">지금 코트 화면을 그대로 이미지로 저장합니다. 휴대폰에서는 공유 창의 '이미지 저장'을 누르면 사진첩에 들어갑니다.</div>
+    </div>
+
     <div class="section" style="border:2px solid var(--accent); border-radius:10px; padding:12px; background:rgba(255,107,53,0.05)">
       <div class="section-title" style="color:var(--accent)" data-i18n="sec_record">녹화 (간편 모드)</div>
       <div id="recordStatus" style="font-size:12px; color:var(--muted); margin-bottom:8px; font-weight:600">녹화된 영상이 없습니다</div>
@@ -355,6 +372,15 @@
       </div>
       <div class="btn-row" style="margin-top:6px">
         <button onclick="clearRecording()" class="danger" data-i18n="btn_clear_recording">녹화 삭제</button>
+      </div>
+      <div style="margin-top:12px; padding-top:10px; border-top:1px dashed rgba(255,255,255,0.12)">
+        <div class="section-title" style="color:#b57edc; margin-bottom:6px" data-i18n="sec_batch">🧩 모아서 한 번에 이동</div>
+        <div class="label-row">
+          <span data-i18n="label_batch_duration">이동 시간</span>
+          <span id="batchDurLabel">1.5초</span>
+        </div>
+        <input type="range" id="batchDuration" min="0.5" max="4" step="0.1" value="1.5" oninput="updateBatchDur()">
+        <div class="info" style="margin-top:8px" data-i18n="batch_help" data-i18n-html>① 코트 아래 <kbd>⏸ 동작 모으기</kbd> → ② 선수·공을 하나씩 옮기기 (녹화는 잠시 멈춤) → ③ <kbd>▶ 한 번에 이동</kbd> → 모두 동시에 움직이며 녹화됩니다.</div>
       </div>
     </div>
 
@@ -404,6 +430,8 @@
         • <span data-i18n="help_arrow" data-i18n-html>그리기 모드: 직선 또는 자유 곡선으로 화살표/궤적 그리기</span><br>
         • <span data-i18n="help_keyframe" data-i18n-html>🔴 녹화 시작 → 자유롭게 움직이기 → ■ 녹화 종료</span><br>
         &nbsp;&nbsp;<span data-i18n="help_keyframe2">→ GIF/동영상으로 저장</span><br>
+        • <span data-i18n="help_batch" data-i18n-html><kbd>⏸ 동작 모으기</kbd>: 여러 선수를 옮겨 두고 <kbd>▶ 한 번에 이동</kbd>으로 동시에 움직이기</span><br>
+        • <span data-i18n="help_photo" data-i18n-html><kbd>📷 사진</kbd>: 현재 장면을 PNG 이미지로 저장</span><br>
         • <span data-i18n="help_export">고급: 키프레임으로 정교한 애니메이션 제작 가능</span>
       </div>
     </div>
@@ -412,6 +440,14 @@
   <main>
     <div class="canvas-wrap">
       <canvas id="court" width="700" height="697"></canvas>
+      <div class="quick-bar">
+        <button onclick="quickRecordToggle()" id="quickRecBtn">🔴 녹화</button>
+        <button onclick="startBatch()" id="batchStartBtn">⏸ 동작 모으기</button>
+        <button onclick="commitBatch()" id="batchCommitBtn" class="batch-go" style="display:none">▶ 한 번에 이동</button>
+        <button onclick="cancelBatch()" id="batchCancelBtn" style="display:none">↩ 취소</button>
+        <button onclick="savePhoto()" id="quickPhotoBtn">📷 사진</button>
+      </div>
+      <div class="batch-hint" id="batchHint"></div>
     </div>
     <div id="debugInfo" style="font-size:10px; color:var(--muted); padding:8px; margin-top:8px; background:var(--panel); border-radius:8px; white-space:pre-wrap; max-height:80px; overflow-y:auto; font-family:monospace"></div>
     <div class="timeline">
@@ -511,6 +547,30 @@ const I18N = {
     toast_gif_done: "GIF 저장 완료!",
     toast_video_unsupported: "이 브라우저는 동영상 저장을 지원하지 않습니다. GIF로 저장해보세요",
     toast_video_recording: "동영상 녹화 중...",
+    help_batch: "<kbd>⏸ 동작 모으기</kbd>: 여러 선수를 옮겨 두고 <kbd>▶ 한 번에 이동</kbd>으로 동시에 움직이기",
+    help_photo: "<kbd>📷 사진</kbd>: 현재 장면을 PNG 이미지로 저장",
+    sec_photo: "장면 사진",
+    btn_save_photo: "📷 사진으로 저장 (PNG)",
+    photo_help: "지금 코트 화면을 그대로 이미지로 저장합니다. 휴대폰에서는 공유 창의 '이미지 저장'을 누르면 사진첩에 들어갑니다.",
+    toast_photo_done: "📷 사진 저장 완료!",
+    sec_batch: "🧩 모아서 한 번에 이동",
+    label_batch_duration: "이동 시간",
+    batch_help: "① 코트 아래 <kbd>⏸ 동작 모으기</kbd> → ② 선수·공을 하나씩 옮기기 (녹화는 잠시 멈춤) → ③ <kbd>▶ 한 번에 이동</kbd> → 모두 동시에 움직이며 녹화됩니다.",
+    q_rec: "🔴 녹화",
+    q_rec_stop: "■ 녹화 종료",
+    q_batch: "⏸ 동작 모으기",
+    q_batch_go: "▶ 한 번에 이동",
+    q_batch_cancel: "↩ 취소",
+    q_batch_moving: "이동 중…",
+    q_photo: "📷 사진",
+    batch_hint_rec: "⏸ <b>녹화 일시정지</b> — 움직일 선수들을 하나씩 옮겨 두세요. 점선은 이동 경로입니다. 다 옮겼으면 <b>▶ 한 번에 이동</b>!",
+    batch_hint: "🧩 움직일 선수들을 하나씩 옮겨 두세요. 점선은 이동 경로입니다. 다 옮겼으면 <b>▶ 한 번에 이동</b>!",
+    label_batch_paused: "⏸ 동작 모으는 중 (녹화 일시정지)",
+    toast_batch_start: "동작 모으기 시작 — 선수들을 옮겨 두세요",
+    toast_batch_done: "동시 이동 완료!",
+    toast_batch_nomove: "옮긴 선수가 없어요",
+    toast_batch_cancel: "원래 위치로 되돌렸습니다",
+    toast_batch_busy: "먼저 '한 번에 이동' 또는 '취소'를 눌러 주세요",
     toast_video_done: "동영상 저장 완료!",
     toast_project_saved: "프로젝트 저장 완료",
     toast_project_loaded: "프로젝트 불러옴",
@@ -626,6 +686,30 @@ const I18N = {
     toast_gif_done: "GIF saved!",
     toast_video_unsupported: "Browser does not support video export. Try saving as GIF instead",
     toast_video_recording: "Recording video...",
+    help_batch: "<kbd>⏸ Collect moves</kbd>: reposition several players, then <kbd>▶ Move all</kbd> to move them together",
+    help_photo: "<kbd>📷 Photo</kbd>: save the current scene as a PNG image",
+    sec_photo: "Scene Photo",
+    btn_save_photo: "📷 Save as Photo (PNG)",
+    photo_help: "Saves the current court view as an image. On phones, tap 'Save Image' in the share sheet to put it in your photo album.",
+    toast_photo_done: "📷 Photo saved!",
+    sec_batch: "🧩 Batch Move (all at once)",
+    label_batch_duration: "Move time",
+    batch_help: "① Tap <kbd>⏸ Collect moves</kbd> under the court → ② move players/ball one by one (recording pauses) → ③ <kbd>▶ Move all</kbd> → everyone moves together and it's recorded.",
+    q_rec: "🔴 Rec",
+    q_rec_stop: "■ Stop",
+    q_batch: "⏸ Collect moves",
+    q_batch_go: "▶ Move all",
+    q_batch_cancel: "↩ Cancel",
+    q_batch_moving: "Moving…",
+    q_photo: "📷 Photo",
+    batch_hint_rec: "⏸ <b>Recording paused</b> — move the players one by one. Dotted lines show their paths. When ready, tap <b>▶ Move all</b>!",
+    batch_hint: "🧩 Move the players one by one. Dotted lines show their paths. When ready, tap <b>▶ Move all</b>!",
+    label_batch_paused: "⏸ Collecting moves (recording paused)",
+    toast_batch_start: "Collecting moves — reposition your players",
+    toast_batch_done: "Moved all at once!",
+    toast_batch_nomove: "No players were moved",
+    toast_batch_cancel: "Restored original positions",
+    toast_batch_busy: "Tap 'Move all' or 'Cancel' first",
     toast_video_done: "Video saved!",
     toast_project_saved: "Project saved",
     toast_project_loaded: "Project loaded",
@@ -698,6 +782,8 @@ function applyLang() {
   }
   // 페어 상태 표시 갱신
   updatePairStatus();
+  // 빠른 실행 바 / 모아서 이동 / 녹화 상태 갱신
+  if (typeof updateBatchUI === "function") updateBatchUI();
   // 타임라인도 다시 그리기 (장면 라벨이 i18n 영향 받음)
   renderFrames();
   // 페이지 제목
@@ -817,7 +903,13 @@ const state = {
   // 녹화 관련
   recording: false,
   recordedFrames: [],
-  recordStartTime: 0
+  recordStartTime: 0,
+  // 모아서 한 번에 이동
+  batchMode: false,        // 동작 모으는 중
+  batchAnimating: false,   // 동시 이동 애니메이션 진행 중
+  batchStart: null,        // 모으기 시작 시점의 위치 { id: {x, y} }
+  batchPauseAt: null,      // 녹화 일시정지 시작 시각
+  batchDuration: 1.5
 };
 
 // ==========================================
@@ -955,6 +1047,7 @@ function setup4v0Position() {
 
 function loadPreset() {
   if (!confirm(t("toast_confirm_preset"))) return;
+  resetBatch();
   // 녹화 중이면 먼저 중지
   if (state.recording) stopRecording();
   setup4v0Position();
@@ -968,6 +1061,7 @@ function loadPreset() {
 
 function clearAll() {
   if (!confirm(t("toast_confirm_clear"))) return;
+  resetBatch();
   // 녹화 중이면 먼저 중지
   if (state.recording) stopRecording();
   state.objects = [];
@@ -1212,6 +1306,11 @@ let recordTimer = null;
 
 function recordingTick() {
   if (!state.recording) return;
+  // 동작 모으는 중에는 녹화 일시정지 (프레임 저장 안 함)
+  if (state.batchMode) {
+    recordTimer = requestAnimationFrame(recordingTick);
+    return;
+  }
   const now = performance.now() - state.recordStartTime;
   state.recordedFrames.push({
     time: now,
@@ -1258,6 +1357,7 @@ function startRecording() {
   state.recordedFrames = [];
   recordingTick();
   updateRecordingUI();
+  if (state.batchMode) updateBatchUI();
   toast(t("toast_recording_started"));
 }
 
@@ -1269,6 +1369,7 @@ function stopRecording() {
     recordTimer = null;
   }
   updateRecordingUI();
+  if (state.batchMode) updateBatchUI();
   toast(t("toast_recording_stopped"));
 }
 
@@ -1291,7 +1392,18 @@ function updateRecordingUI() {
   const statusEl = document.getElementById("recordStatus");
   if (!startBtn) return;
 
-  if (state.recording) {
+  const qRec = document.getElementById("quickRecBtn");
+  if (qRec) {
+    qRec.textContent = state.recording ? t("q_rec_stop") : t("q_rec");
+    qRec.classList.toggle("rec-stop", state.recording);
+  }
+  if (state.recording && state.batchMode) {
+    startBtn.style.display = "none";
+    stopBtn.style.display = "inline-flex";
+    statusEl.textContent = t("label_batch_paused");
+    statusEl.style.color = "#b57edc";
+    statusEl.classList.remove("recording-blink");
+  } else if (state.recording) {
     startBtn.style.display = "none";
     stopBtn.style.display = "inline-flex";
     statusEl.textContent = t("label_recording");
@@ -1344,6 +1456,7 @@ function renderRecordedFrame(timeMs) {
 }
 
 function saveRecordedGIF() {
+  if (batchBusy()) return;
   if (state.recordedFrames.length < 2) {
     toast(t("toast_no_recording"));
     return;
@@ -1429,6 +1542,7 @@ function pickBestVideoFormat() {
 }
 
 function saveRecordedVideo() {
+  if (batchBusy()) return;
   if (state.recordedFrames.length < 2) {
     toast(t("toast_no_recording"));
     return;
@@ -2037,6 +2151,8 @@ function draw() {
   if (state.drawingArrow) {
     drawArrow(state.drawingArrow, 0.5);
   }
+  // 모아서 이동: 원래 위치(반투명)와 이동 경로(점선)
+  if (state.batchMode && state.batchStart) drawBatchGhosts();
   // 페어 모드에서 첫 번째 선택된 선수 강조
   if (state.pairMode) {
     drawPairFirstSelected();
@@ -2123,6 +2239,7 @@ function findObjectAt(x, y) {
 
 function onPointerDown(e) {
   e.preventDefault();
+  if (state.batchAnimating) return; // 동시 이동 중에는 조작 잠금
   const pos = getCanvasPos(e);
 
   // 선택 삭제 모드: X 버튼을 누르면 삭제, 다른 곳은 무시
@@ -2297,6 +2414,7 @@ function isMultiTouchMode() {
 }
 
 function onTouchStart(e) {
+  if (state.batchAnimating) { e.preventDefault(); return; } // 동시 이동 중에는 조작 잠금
   // 모드 중일 때는 기존 단일 터치 핸들러로 위임 (호환성 유지)
   if (!isMultiTouchMode()) {
     onPointerDown(e);
@@ -2657,6 +2775,7 @@ function easeInOut(t) {
 }
 
 function playAnimation() {
+  if (batchBusy()) return;
   if (state.keyframes.length < 2) {
     toast(t("toast_need_2_frames"));
     return;
@@ -2760,6 +2879,7 @@ function updateDur() {
 // GIF 저장
 // ==========================================
 function exportGIF() {
+  if (batchBusy()) return;
   if (state.keyframes.length < 2) {
     toast(t("toast_need_2_frames_gif"));
     return;
@@ -2864,6 +2984,7 @@ function exportGIF() {
 }
 
 function exportWebM() {
+  if (batchBusy()) return;
   if (state.keyframes.length < 2) {
     toast(t("toast_need_2_frames_video"));
     return;
@@ -2941,6 +3062,7 @@ function loadProject(e) {
   reader.onload = function(ev) {
     try {
       const data = JSON.parse(ev.target.result);
+      resetBatch();
       // 녹화 중이면 중지
       if (state.recording) stopRecording();
       // 모든 모드 초기화
@@ -2995,6 +3117,254 @@ function loadProject(e) {
 }
 
 let toastTimer = null;
+// ==========================================
+// 📷 장면 사진 저장 (PNG)
+// ==========================================
+function dataURLtoBlob(dataUrl) {
+  const parts = dataUrl.split(",");
+  const mime = parts[0].match(/:(.*?);/)[1];
+  const bin = atob(parts[1]);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+function photoFileName() {
+  const d = new Date();
+  const z = function(n) { return (n < 10 ? "0" : "") + n; };
+  return "korfball_scene_" + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) +
+    "_" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + ".png";
+}
+
+function downloadDataUrl(dataUrl, fname) {
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  toast(t("toast_photo_done"));
+}
+
+function savePhoto() {
+  // 삭제 X 표시·페어 선택 강조 같은 '편집용 표시'는 빼고 깨끗하게 찍기
+  const keepDelete = state.deleteMode, keepPair = state.pairMode;
+  state.deleteMode = false;
+  state.pairMode = false;
+  draw();
+  const dataUrl = canvas.toDataURL("image/png");
+  state.deleteMode = keepDelete;
+  state.pairMode = keepPair;
+  draw();
+
+  const fname = photoFileName();
+  // 휴대폰/태블릿: 공유 창 → '이미지 저장'으로 사진첩에 바로 저장
+  const isTouch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+  if (isTouch && navigator.canShare && navigator.share && typeof File !== "undefined") {
+    try {
+      const file = new File([dataURLtoBlob(dataUrl)], fname, { type: "image/png" });
+      if (navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file] })
+          .then(function() { toast(t("toast_photo_done")); })
+          .catch(function(err) {
+            if (err && err.name === "AbortError") return; // 사용자가 공유 창을 닫음
+            downloadDataUrl(dataUrl, fname);
+          });
+        return;
+      }
+    } catch (e) { /* 아래 다운로드 방식으로 */ }
+  }
+  // PC 또는 공유 미지원: 파일로 다운로드
+  downloadDataUrl(dataUrl, fname);
+}
+
+// ==========================================
+// 🧩 모아서 한 번에 이동
+// 1) 동작 모으기: 현재 위치를 기억하고 녹화를 잠시 멈춤
+// 2) 선수들을 하나씩 옮김 (점선으로 경로 표시)
+// 3) 한 번에 이동: 원래 위치 → 옮긴 위치로 모두 동시에 부드럽게 이동 (녹화 재개)
+// ==========================================
+function batchBusy() {
+  if (state.batchMode || state.batchAnimating) {
+    toast(t("toast_batch_busy"));
+    return true;
+  }
+  return false;
+}
+
+function updateBatchDur() {
+  const v = parseFloat(document.getElementById("batchDuration").value);
+  state.batchDuration = v;
+  document.getElementById("batchDurLabel").textContent =
+    v.toFixed(1) + (currentLang === "ko" ? "초" : "s");
+}
+
+function quickRecordToggle() {
+  if (state.recording) stopRecording();
+  else startRecording();
+}
+
+function startBatch() {
+  if (state.batchMode || state.batchAnimating) return;
+  if (state.playing) stopAnimation();
+  state.batchStart = {};
+  state.objects.forEach(function(o) { state.batchStart[o.id] = { x: o.x, y: o.y }; });
+  state.batchMode = true;
+  state.batchPauseAt = performance.now();
+  updateBatchUI();
+  draw();
+  toast(t("toast_batch_start"));
+}
+
+// 녹화 시간을 '멈춰 있던 시간'만큼 뒤로 밀어서 영상이 끊김 없이 이어지게 함
+function finishBatchPause() {
+  if (state.recording && state.batchPauseAt !== null) {
+    const pausedFrom = Math.max(state.batchPauseAt, state.recordStartTime);
+    state.recordStartTime += performance.now() - pausedFrom;
+  }
+  state.batchPauseAt = null;
+}
+
+function cancelBatch() {
+  if (!state.batchMode) return;
+  const start = state.batchStart || {};
+  state.objects.forEach(function(o) {
+    if (start[o.id]) { o.x = start[o.id].x; o.y = start[o.id].y; }
+  });
+  state.batchMode = false;
+  state.batchStart = null;
+  finishBatchPause();
+  updateBatchUI();
+  draw();
+  toast(t("toast_batch_cancel"));
+}
+
+// 전체 삭제·기본배치·불러오기 때 조용히 모으기 상태 해제
+function resetBatch() {
+  if (!state.batchMode) return;
+  state.batchMode = false;
+  state.batchStart = null;
+  finishBatchPause();
+  updateBatchUI();
+}
+
+function commitBatch() {
+  if (!state.batchMode) return;
+  const start = state.batchStart || {};
+  const moves = [];
+  state.objects.forEach(function(o) {
+    const s = start[o.id];
+    if (s && (Math.abs(s.x - o.x) > 0.5 || Math.abs(s.y - o.y) > 0.5)) {
+      moves.push({ obj: o, fx: s.x, fy: s.y, tx: o.x, ty: o.y });
+    }
+  });
+  state.batchMode = false;
+  state.batchStart = null;
+  state.draggingId = null;
+  state.touchDrags = {};
+
+  if (moves.length === 0) {
+    finishBatchPause();
+    updateBatchUI();
+    draw();
+    toast(t("toast_batch_nomove"));
+    return;
+  }
+
+  // 모두 출발 위치로 되돌린 뒤, 녹화를 재개하고 동시에 이동
+  moves.forEach(function(m) { m.obj.x = m.fx; m.obj.y = m.fy; });
+  finishBatchPause();
+  state.batchAnimating = true;
+  updateBatchUI();
+  draw();
+
+  const dur = state.batchDuration * 1000;
+  const t0 = performance.now();
+  function step(now) {
+    const p = Math.min(1, Math.max(0, (now - t0) / dur));
+    const e = easeInOut(p);
+    moves.forEach(function(m) {
+      m.obj.x = m.fx + (m.tx - m.fx) * e;
+      m.obj.y = m.fy + (m.ty - m.fy) * e;
+    });
+    draw();
+    if (p < 1) {
+      requestAnimationFrame(step);
+    } else {
+      state.batchAnimating = false;
+      updateBatchUI();
+      toast(t("toast_batch_done"));
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+function drawBatchGhosts() {
+  const start = state.batchStart;
+  state.objects.forEach(function(o) {
+    const s = start[o.id];
+    if (!s) return;
+    if (Math.abs(s.x - o.x) < 3 && Math.abs(s.y - o.y) < 3) return;
+    const col = o.type === "ball" ? "#d4ac0d" : (o.team === "A" ? "#ff6b35" : "#4ecdc4");
+    ctx.save();
+    // 이동 경로 (점선)
+    ctx.globalAlpha = 0.8;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([7, 5]);
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y);
+    ctx.lineTo(o.x, o.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // 출발 위치 (반투명 선수)
+    ctx.globalAlpha = 0.3;
+    drawObject(Object.assign({}, o, { x: s.x, y: s.y }));
+    ctx.restore();
+  });
+}
+
+function updateBatchUI() {
+  const startBtn = document.getElementById("batchStartBtn");
+  const goBtn = document.getElementById("batchCommitBtn");
+  const cancelBtn = document.getElementById("batchCancelBtn");
+  const photoBtn = document.getElementById("quickPhotoBtn");
+  const recBtn = document.getElementById("quickRecBtn");
+  const hint = document.getElementById("batchHint");
+  if (!startBtn) return;
+
+  photoBtn.textContent = t("q_photo");
+  cancelBtn.textContent = t("q_batch_cancel");
+  if (state.batchAnimating) {
+    startBtn.style.display = "inline-flex";
+    startBtn.disabled = true;
+    startBtn.textContent = t("q_batch_moving");
+    goBtn.style.display = "none";
+    cancelBtn.style.display = "none";
+  } else if (state.batchMode) {
+    startBtn.style.display = "none";
+    goBtn.style.display = "inline-flex";
+    goBtn.textContent = t("q_batch_go");
+    cancelBtn.style.display = "inline-flex";
+  } else {
+    startBtn.style.display = "inline-flex";
+    startBtn.disabled = false;
+    startBtn.textContent = t("q_batch");
+    goBtn.style.display = "none";
+    cancelBtn.style.display = "none";
+  }
+  if (recBtn) recBtn.disabled = state.batchAnimating;
+  if (state.batchMode) {
+    hint.innerHTML = state.recording ? t("batch_hint_rec") : t("batch_hint");
+    hint.classList.add("show");
+  } else {
+    hint.classList.remove("show");
+  }
+  const lbl = document.getElementById("batchDurLabel");
+  if (lbl) lbl.textContent = state.batchDuration.toFixed(1) + (currentLang === "ko" ? "초" : "s");
+  updateRecordingUI();
+}
+
 function toast(msg) {
   const el = document.getElementById("toast");
   el.textContent = msg;
@@ -3014,6 +3384,7 @@ function init() {
   applyLang();
   // 녹화 UI 초기화
   updateRecordingUI();
+  updateBatchUI();
   // 페어 상태 UI 초기화
   updatePairStatus();
   debugLog("4-0 배치로 초기화 완료, 선수 " + state.objects.length + "명");
