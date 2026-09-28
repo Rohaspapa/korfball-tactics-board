@@ -19,6 +19,9 @@
 - **페어 개별 해제** — 페어 목록에서 칩(태그)을 탭하면 해당 페어만 해제
 - **실시간 녹화** 🔴 — 자유롭게 움직이면서 녹화 → GIF / 동영상(MP4)으로 저장
 - **모바일 호환 동영상** — MP4(H.264) 포맷 자동 선택으로 카톡·사진앱에서 바로 재생
+- **모아서 한 번에 이동** 🧩 — 여러 선수를 하나씩 옮겨 두고, 버튼 한 번으로 모두 동시에 이동 (녹화에 그대로 반영)
+- **장면 사진 저장** 📷 — 현재 코트 화면을 PNG 이미지로 저장 (모바일은 사진첩에 바로 저장)
+- **코트 아래 빠른 실행 버튼** — 녹화 / 동작 모으기 / 사진을 스크롤 없이 바로 사용
 - **키프레임 애니메이션** (고급) — 정교한 작전 흐름을 만들 수 있음
 - **프로젝트 저장/불러오기** — JSON 파일로 작전 보관
 - **한국어 / 영어 지원**
@@ -52,6 +55,24 @@
 4. `🎬 동영상으로 저장` 또는 `🎞 GIF로 저장` 선택
 5. 카톡·인스타·SNS로 바로 공유
 
+> 💡 코트 바로 아래의 `🔴 녹화` 버튼으로도 녹화를 시작/종료할 수 있습니다.
+
+### 모아서 한 번에 이동 🧩
+선수를 하나씩 움직이면 영상이 느려 보일 때 사용합니다.
+1. 녹화 중에 코트 아래 `⏸ 동작 모으기` 클릭 → 녹화가 잠시 멈춤
+2. 움직일 선수·공을 하나씩 옮겨 두기 (원래 자리는 흐리게, 이동 경로는 점선으로 표시)
+3. `▶ 한 번에 이동` 클릭 → 모두 원래 자리에서 동시에 부드럽게 이동하며 녹화 재개
+4. 잘못 옮겼다면 `↩ 취소`로 원래 자리로 복귀
+- 멈춰 있던 시간은 영상에 들어가지 않아 끊김 없이 이어집니다.
+- 이동 속도는 사이드바 녹화 칸의 **이동 시간** 조절바로 바꿀 수 있습니다 (0.5~4초, 기본 1.5초).
+- 녹화하지 않을 때도 화면 시연용으로 사용할 수 있습니다.
+
+### 장면 사진 📷
+- 코트 아래 `📷 사진` 또는 사이드바의 `📷 사진으로 저장 (PNG)` 클릭
+- 모바일: 공유 창에서 `이미지 저장` → 사진첩에 저장 (카톡 공유도 가능)
+- PC: PNG 파일로 다운로드
+- 💡 `⏸ 동작 모으기` 상태에서 찍으면 원래 위치와 이동 점선이 함께 담긴 **작전도**가 됩니다.
+
 ### 화면 회전
 모바일은 가로 화면이 더 보기 편합니다.
 
@@ -83,6 +104,24 @@
 3. Click `■ Stop Recording`
 4. Choose `🎬 Save as Video` or `🎞 Save as GIF`
 5. Share directly via messaging apps or social media
+
+> 💡 You can also start/stop recording with the `🔴 Rec` button right below the court.
+
+### Batch Move (all at once) 🧩
+Use this when moving players one by one makes the video look slow.
+1. While recording, tap `⏸ Collect moves` below the court → recording pauses
+2. Move the players/ball one by one (original spots are faded, paths shown as dotted lines)
+3. Tap `▶ Move all` → everyone moves together smoothly and recording resumes
+4. Made a mistake? Tap `↩ Cancel` to restore the original positions
+- The paused time is not included, so the video plays without gaps.
+- Adjust the speed with the **Move time** slider in the sidebar recording section (0.5–4s, default 1.5s).
+- Also works without recording, for live demonstrations.
+
+### Scene Photo 📷
+- Tap `📷 Photo` below the court, or `📷 Save as Photo (PNG)` in the sidebar
+- Mobile: choose `Save Image` in the share sheet to save to your photo album
+- PC: downloads a PNG file
+- 💡 Taking a photo while collecting moves captures the original positions and dotted paths — a ready-made tactics diagram.
 
 ### Screen Orientation
 Landscape mode works best on mobile devices.
